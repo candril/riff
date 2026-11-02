@@ -10,6 +10,9 @@ import { keysOn } from "../testing/chat-keys"
 import { SearchHandler } from "../vim-diff/search-handler"
 import { VimMotionHandler } from "../vim-diff/motion-handler"
 import { toLineState, toRowState } from "./split-cursor"
+import { parseHighlights, type Parse } from "../vim-diff/file-parses"
+import { fgAt, ints } from "../testing/frame"
+import { theme } from "../theme"
 
 const README = ["# shop", "", "Intro", "", "## Shipping", "", "- fast", "- cheap"].join("\n")
 
@@ -52,10 +55,13 @@ async function renderedApp({
   loaded = true,
   more = {},
   width = 120,
-}: { loaded?: boolean; more?: Partial<AppKeyContext>; width?: number } = {}) {
-  app = await mountApp(DIFF, { width, height: 24 })
+  diff = DIFF,
+  readme = README,
+  parse,
+}: { loaded?: boolean; more?: Partial<AppKeyContext>; width?: number; diff?: string; readme?: string; parse?: Parse } = {}) {
+  app = await mountApp(diff, { width, height: 24, parse })
   const mounted = app
-  if (loaded) mounted.fileContent.set("README.md", README, "# shop\n\nIntro")
+  if (loaded) mounted.fileContent.set("README.md", readme, "# shop\n\nIntro")
   mounted.show({ focusedPanel: "diff" })
   const { ctx: render } = mounted
   const cursorView = routeDiffViewport(render.unified, {
@@ -318,4 +324,55 @@ test("in the side-by-side view the rendered rows sit in the new half, and j and 
   expect(cursorRow()).toMatchObject({ content: "• fast", rendered: true })
   type("k")
   expect(cursorRow()).toMatchObject({ newLineNum: 6, rendered: true })
+})
+
+test("gR colours a fenced ts block by typescript: a label sapphire, a comment overlay0", async () => {
+  const body = [
+    "```ts",
+    "{",
+    "  AccountHolder: familyOwnerId       // AAX keys a family by its owner",
+    "  FamilyName: familyName",
+    "  RequestHeader: AAXSource.Frontend",
+    "}",
+    "```",
+  ]
+  const readme = ["# shop", "", "Intro", "", "#### Body (`ChangeDisplayNameFamilyRequest`)", "", ...body].join("\n")
+  const diff = [
+    "diff --git a/README.md b/README.md",
+    "index 1111111..2222222 100644",
+    "--- a/README.md",
+    "+++ b/README.md",
+    "@@ -1,3 +1,13 @@",
+    " # shop",
+    " ",
+    " Intro",
+    "+",
+    "+#### Body (`ChangeDisplayNameFamilyRequest`)",
+    "+",
+    ...body.map((line) => `+${line}`),
+    "",
+  ].join("\n")
+  const { mounted, gR, keys, lineOf } = await renderedApp({ diff, readme, parse: parseHighlights })
+  keys.jumpTo(lineOf("Intro"))
+  await gR()
+
+  const sapphire = ints(theme.sapphire)
+  const cellOf = (rows: string[], text: string) => {
+    const y = rows.findIndex((row) => row.includes(text))
+    return { x: rows[y]!.indexOf(text), y }
+  }
+  let rows = (await mounted.frame()).split("\n")
+  for (let tries = 0; tries < 200; tries++) {
+    const holder = cellOf(rows, "AccountHolder")
+    if (fgAt(mounted.setup.captureSpans(), holder.x, holder.y)?.join() === sapphire.join()) break
+    await Bun.sleep(10)
+    rows = (await mounted.frame()).split("\n")
+  }
+
+  const spans = mounted.setup.captureSpans()
+  const holder = cellOf(rows, "AccountHolder")
+  const comment = cellOf(rows, "// AAX")
+  expect(rows.join("\n")).not.toContain("```")
+  expect(fgAt(spans, holder.x, holder.y)).toEqual(sapphire)
+  expect(fgAt(spans, comment.x, comment.y)).toEqual(ints(theme.overlay0))
 })

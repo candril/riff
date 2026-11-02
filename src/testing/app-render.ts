@@ -45,7 +45,7 @@ import { parseDiff } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
-import { FileParses } from "../vim-diff/file-parses"
+import { FileParses, type Parse } from "../vim-diff/file-parses"
 import { createSearchState } from "../vim-diff/search-state"
 import { buildLineMapping } from "../app/init"
 import { createFramePass, type FramePassContext } from "../app/frame-pass"
@@ -75,11 +75,16 @@ const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0))
 /**
  * riff's whole render pass on a test screen: every island real, wired the
  * way app.ts wires them, with highlighting that never lands so frames stay
- * deterministic.
+ * deterministic, unless a test hands it a parse.
  */
 export async function mountApp(
   raw: string,
-  { width = 120, height = 24, refreshClock }: { width?: number; height?: number; refreshClock?: () => string } = {}
+  {
+    width = 120,
+    height = 24,
+    refreshClock,
+    parse = async () => null,
+  }: { width?: number; height?: number; refreshClock?: () => string; parse?: Parse } = {}
 ) {
   const setup = await createTestRenderer({ width, height })
   const renderer = setup.renderer
@@ -98,12 +103,12 @@ export async function mountApp(
   const buildMapping = () => buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown)
   let mapping = buildMapping()
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
-  const parses = new FileParses(async () => null)
+  const parses = new FileParses(parse)
   // None unless a test mounts one, as app.ts has none outside a PR.
   let prInfoPanel: PRInfoPanelClass | null = null
   let render = () => {}
   let updateSearchPattern = (_value: string) => {}
-  const highlights = createDiffHighlights(parses, () => render(), async () => null)
+  const highlights = createDiffHighlights(parses, () => render(), parse)
   const diffDeps = {
     renderer,
     highlights,

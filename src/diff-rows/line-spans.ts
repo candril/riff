@@ -2,6 +2,7 @@ import type { SimpleHighlight } from "@opentui/core"
 import { lineStarts } from "../vim-diff/file-highlights"
 import { parseHighlights, type FileParses, type Parse } from "../vim-diff/file-parses"
 import { getFiletypeFromPath } from "../vim-diff/filetype"
+import { withoutInjectionContainers } from "../vim-diff/injection-containers"
 import { dropSplitKeywords } from "../vim-diff/split-keywords"
 import type { DiffLine, RenderedCode } from "../vim-diff/types"
 import type { CaptureSpan } from "./segments"
@@ -129,7 +130,7 @@ export class LineSpans {
 
   // Once per parse, so a row's lookup stays constant however long the file is.
   private indexFile(highlights: readonly SimpleHighlight[], content: string): Map<number, readonly CaptureSpan[]> {
-    const indexed = this.fileLines.get(highlights) ?? spansByLine(content, highlights)
+    const indexed = this.fileLines.get(highlights) ?? spansByLine(content, withoutInjectionContainers(highlights))
     this.fileLines.set(highlights, indexed)
     return indexed
   }
@@ -167,7 +168,7 @@ export class LineSpans {
     if (!highlights) {
       this.store(key, [])
     } else {
-      const byLine = spansByLine(text, highlights)
+      const byLine = spansByLine(text, withoutInjectionContainers(highlights))
       this.store(key, text.split("\n").slice(0, -1).map((_, at) => byLine.get(at + 1) ?? NO_SPANS))
     }
     this.onSpans?.()

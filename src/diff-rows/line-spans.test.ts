@@ -2,7 +2,7 @@ import { test, expect, describe } from "bun:test"
 import type { SimpleHighlight } from "@opentui/core"
 import { renderMarkdown } from "../features/rendered-markdown/render"
 import { parseDiff } from "../utils/diff-parser"
-import { FileParses } from "../vim-diff/file-parses"
+import { FileParses, parseHighlights } from "../vim-diff/file-parses"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { code, diffFile, mappingOf } from "./fixtures"
 import { LineSpans, sideOf } from "./line-spans"
@@ -276,5 +276,62 @@ describe("a rendered code block's spans", () => {
 
       expect(spans.spans(lines, indexOf(lines, "let b"))).toEqual(raw("let b"))
     }
+  })
+})
+
+describe("a markdown file's fenced ts block, parsed for real", () => {
+  const md = [
+    "#### Body (`ChangeDisplayNameFamilyRequest`)",
+    "",
+    "```ts",
+    "{",
+    "  AccountHolder: familyOwnerId       // AAX keys a family by its owner",
+    "  FamilyName: familyName",
+    "  RequestHeader: AAXSource.Frontend",
+    "}",
+    "```",
+  ].join("\n")
+  const added = parseDiff(
+    [
+      "diff --git a/doc.md b/doc.md",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/doc.md",
+      "@@ -0,0 +1,9 @@",
+      ...md.split("\n").map((line) => `+${line}`),
+      "",
+    ].join("\n")
+  )
+  const lines = () => new DiffLineMapping(added, "all").allLines
+  const holder = "  AccountHolder: familyOwnerId       // AAX keys a family by its owner"
+
+  const expectTsColours = (spans: readonly CaptureSpan[] | undefined, fence: readonly CaptureSpan[] | undefined) => {
+    const comment = holder.indexOf("//")
+    expect(spans).toContainEqual([comment, holder.length, "comment"])
+    expect(spans).toContainEqual([2, 15, "label"])
+    expect(spans?.some(([, , capture]) => capture === "markup.raw.block")).toBe(false)
+    expect(fence).toContainEqual([0, 3, "markup.raw.block"])
+  }
+
+  test("take the injected language's colours from the file's parse, not the block's green", async () => {
+    const parses = new FileParses(parseHighlights)
+    const landed = new Promise<void>((resolve) => (parses.onParsed = () => resolve()))
+    parses.set(new Map([["doc.md", { new: md, old: null }]]))
+    await landed
+
+    const spans = new LineSpans(parses, deferredParse().parse)
+    const rows = lines()
+
+    expectTsColours(spans.spans(rows, indexOf(rows, holder)), spans.spans(rows, indexOf(rows, "```ts")))
+  })
+
+  test("take them from the hunk's parse when riff has no file parse", async () => {
+    const spans = new LineSpans(new FileParses(async () => null), parseHighlights)
+    const landed = new Promise<void>((resolve) => (spans.onSpans = () => resolve()))
+    const rows = lines()
+    expect(spans.spans(rows, indexOf(rows, holder))).toBeUndefined()
+    await landed
+
+    expectTsColours(spans.spans(rows, indexOf(rows, holder)), spans.spans(rows, indexOf(rows, "```ts")))
   })
 })

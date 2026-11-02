@@ -24,6 +24,8 @@ export const SYNTAX_PALETTE: Record<string, CaptureStyle> = {
   property: { fg: theme.lavender },
   constant: { fg: theme.peach },
   attribute: { fg: theme.teal },
+  // Catppuccin's nvim theme draws Label sapphire, so a ts label reads as code rather than prose.
+  label: { fg: theme.sapphire },
 
   // Markdown syntax highlighting
   "markup.heading": { fg: theme.red, bold: true },
