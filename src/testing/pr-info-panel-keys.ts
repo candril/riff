@@ -9,6 +9,7 @@ import type { ReactionTarget } from "../types"
 import { reactionTargetOf } from "../features/reactions/target"
 import { keymapHarness } from "./keymap-keys"
 import { prInfo } from "./pr-info"
+import type { PreviewRow } from "../utils/previews"
 
 /** The PR overview as the view, nothing open over it. */
 export function overviewState(patch: Partial<AppState> = {}): AppState {
@@ -29,6 +30,8 @@ export interface StubPanelOptions {
   file?: boolean
   /** A real panel in place of the recording stub, for keys whose effect is the panel's own. */
   controller?: PRInfoPanelClass
+  /** The preview row under the cursor; two links by default. */
+  preview?: PreviewRow
 }
 
 /**
@@ -67,7 +70,8 @@ export function stubPanel(calls: string[], options: StubPanelOptions = {}) {
     getSelectedCheck: () => undefined,
     getSelectedMergeThread: () => undefined,
     getSelectedAnnotation: () => null,
-    getSelectedPreview: () => ({ app: "vercel", links: [{ label: "a", url: "https://a" }, { label: "b", url: "https://b" }] }),
+    getSelectedPreview: () =>
+      options.preview ?? { app: "vercel", links: [{ label: "a", url: "https://a" }, { label: "b", url: "https://b" }] },
     getSelectedFile: () => (panel.file ? { filename: "src/greet.ts" } : undefined),
     getSelectedCommit: () => ({ sha: "abc123" }),
     getSelectedFlatItem: () => ({ type: "review-thread", data: { id: "t1" } }),
@@ -109,6 +113,8 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     onOpenFileAtLine: record("openFileAtLine"),
     onActivateCommit: record("activateCommit"),
     onPreviewRow: (action, row) => void calls.push(`previewRow ${action} ${row.app}`),
+    onDeployPreview: (row) => void calls.push(`deploy ${row.app}`),
+    onPreviewBuild: (row) => void calls.push(`build ${row.app}`),
     onToggleThreadResolved: record("resolve"),
     onOpenThread: record("openThread"),
     executeAction: record("action"),

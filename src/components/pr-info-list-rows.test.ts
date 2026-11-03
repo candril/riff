@@ -52,6 +52,38 @@ describe("previewRows", () => {
   test("says there are none", () => {
     expect(previewRows([], none)).toEqual({ rows: [], note: "No preview links in this PR's conversation" })
   })
+
+  describe("on demand (spec 113)", () => {
+    const run = { label: "10:16 03.11.26", url: "https://github.com/o/r/actions/runs/9/attempts/1" }
+    const hourglass = { label: "⏳", url: run.url }
+    const rows: PreviewRow[] = [
+      { app: "shop", links: [{ label: "galaxus.ch", url: "https://a" }], built: hourglass },
+      { app: "design", links: [], status: "on demand", built: run, deploy: { checked: false, line: "- [ ] Deploy design preview" } },
+      { app: "idp", links: [], status: "on demand", built: run, deploy: { checked: true, line: "- [x] Deploy idp preview" } },
+      { app: "mcp", links: [], status: "building", built: hourglass, deploy: { checked: false, line: "- [ ] Deploy mcp preview" } },
+    ]
+
+    test("each state in words, the hourglass never drawn", () => {
+      expect(texts(previewRows(rows, none))).toEqual([
+        "shop        galaxus.ch  rebuilding",
+        "design      on demand  10:16 03.11.26",
+        "idp         deploy requested  10:16 03.11.26",
+        "mcp         building",
+      ])
+    })
+
+    test("what Enter does shows on the cursor's row only", () => {
+      expect(texts(previewRows(rows, { ...none, selected: 1 }))[1]).toBe("design      on demand  10:16 03.11.26  ↵ deploy")
+      expect(texts(previewRows(rows, { ...none, selected: 3 }))[3]).toBe("mcp         building  ↵ jobs")
+    })
+
+    test("what is under way is yellow", () => {
+      const list = previewRows(rows, none).rows
+      expect(list[0]!.segments[2]!.fg).toBe(theme.yellow)
+      expect(list[2]!.segments[1]!.fg).toBe(theme.yellow)
+      expect(list[3]!.segments[1]!.fg).toBe(theme.yellow)
+    })
+  })
 })
 
 describe("fileRows", () => {

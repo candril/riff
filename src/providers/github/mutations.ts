@@ -128,6 +128,28 @@ export async function updateComment(
   }
 }
 
+/**
+ * Rewrite a PR-level comment — someone else's, too, given write access to
+ * the repo. That is how a deploy bot's task-list button is pressed (spec 113).
+ * The body travels as JSON on stdin: `-f` would read a leading `@` as a file.
+ */
+export async function updateIssueComment(
+  owner: string,
+  repo: string,
+  commentId: number,
+  body: string
+): Promise<SubmitResult> {
+  try {
+    const input = new Response(JSON.stringify({ body }))
+    const result = await $`gh api -X PATCH repos/${owner}/${repo}/issues/comments/${commentId} --input - < ${input}`
+      .quiet()
+      .json() as { id: number; html_url: string }
+    return { success: true, githubId: result.id, githubUrl: result.html_url }
+  } catch (err) {
+    return { success: false, error: extractShellError(err) }
+  }
+}
+
 interface DeleteResult {
   success: boolean
   error?: string

@@ -49,6 +49,7 @@ export const G_SEQUENCES = {
   gs: "openSyncPreview",
   go: "openLink",
   gi: "openPrInfo",
+  gp: "openPreviews",
   gy: "copyPrUrl",
   "gB!": "openInBoard",
   "gb!": "openInBoard",
@@ -95,6 +96,7 @@ export const G_PALETTE_KEYS: Partial<Record<GCommand, string>> = {
   openReviewPreview: "gS",
   openSyncPreview: "gs",
   openPrInfo: "gi",
+  openPreviews: "gp",
   copyPrUrl: "gy",
   openInBoard: "gB",
   copyPermalink: "gY",
@@ -138,6 +140,10 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
     }),
     openPrInfo: taking(() => {
       if (inPr()) prInfoPanelFeature.handleOpenPRInfoPanel(deps.prInfoPanelOpenContext)
+    }),
+    // The previews, open, from wherever riff is (spec 113).
+    openPreviews: taking(() => {
+      if (inPr()) prInfoPanelFeature.handleOpenPreviews(deps.prInfoPanelOpenContext)
     }),
     copyPrUrl: taking(() => {
       if (inPr()) deps.executeAction("copy-pr-url")

@@ -85,5 +85,9 @@ export function prInfoPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): PRIn
         action
       )
     },
+    onDeployPreview: (row) => ctx.previewDeploys.deploy(row),
+    onPreviewBuild: (row) => {
+      void ctx.previewDeploys.showBuild(row, (source, title) => links.openLinksPicker([source], title))
+    },
   }
 }

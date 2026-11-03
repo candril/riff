@@ -20,6 +20,7 @@ import type { ChatAtPicker } from "../features/chat/at-picker"
 import type { ChatColumnState } from "../features/chat/column-state"
 import type { HelpState } from "../features/help/state"
 import type { ConfirmState } from "../features/confirm/state"
+import type { PreviewDeploys } from "../features/preview-deploys"
 import type { JumpListState } from "../features/jumplist/state"
 import type { SyncPreviewState } from "../features/sync-preview/state"
 import type { ReviewPreviewState } from "../features/review-preview/state"
@@ -145,6 +146,8 @@ export interface AppKeyContext {
   help: HelpState
   /** The confirm dialog's state, the same instance the frame pass reads. */
   confirm: ConfirmState
+  /** Deploying a preview on demand and following its build (spec 113). */
+  previewDeploys: PreviewDeploys
   /** The sync preview's state, the same instance the frame pass reads. */
   syncPreview: SyncPreviewState
   /** Submit Review's state, the same instance the frame pass reads. */

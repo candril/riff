@@ -1,5 +1,13 @@
 import { test, expect, describe } from "bun:test"
-import { detectPreviews, extractPreviewRows } from "./previews"
+import {
+  detectPreviews,
+  extractPreviewRows,
+  isBuilding,
+  isPending,
+  previewState,
+  runIdOf,
+  tickDeployTask,
+} from "./previews"
 import { defaultConfig } from "../config/defaults"
 
 const config = defaultConfig.previews
@@ -68,6 +76,91 @@ describe("lifting preview links out of a bot's table", () => {
     expect(
       extractPreviewRows(table, { ...off, hosts: ["*.preview.devinite.com"] }, 1)[0]?.links.length
     ).toBe(1)
+  })
+})
+
+const ON_DEMAND = `<!-- id = preview-links-and-size -->
+| App | Preview | Built |
+| :--- | :--- | :---: |
+| 🛒 Shop | [galaxus.ch](https://galaxus-ch-preview-pr12134.preview.example.com) | [⏳](https://github.com/o/r/actions/runs/41609222736/attempts/1) |
+| 🎨 Design System | *on demand* | [10:16<br><sub>03.11.26</sub>](https://github.com/o/r/actions/runs/41609222736/attempts/1) |
+| 🔑 Identity Provider | *on demand* | [10:57<br><sub>03.11.26</sub>](https://github.com/o/r/actions/runs/41609222736/attempts/1) |
+| 🤖 Shop MCP | *building* | [⏳](https://github.com/o/r/actions/runs/41609222736/attempts/1) |
+| 🖼️ Demo Studio | [Preview](https://pr12134-demostudio.preview.example.com) | [11:00<br><sub>03.11.26</sub>](https://github.com/o/r/actions/runs/41609222736/attempts/1) |
+
+- [ ] Deploy 🎨 Design System preview
+- [x] Deploy 🔑 Identity Provider preview
+- [ ] Deploy 🤖 Shop MCP preview
+- [x] Deploy 🖼️ Demo Studio preview
+`
+
+describe("previews deployed on demand", () => {
+  const rows = extractPreviewRows(ON_DEMAND, config, 12134)
+  const byApp = (app: string) => rows.find((row) => row.app.includes(app))!
+
+  test("a build cell's two lines read as one label, not run together", () => {
+    expect(byApp("Design System").built?.label).toBe("10:16 03.11.26")
+  })
+
+  test("each row takes the task item that names it, and only the longest name wins", () => {
+    expect(byApp("Design System").deploy).toEqual({ checked: false, line: "- [ ] Deploy 🎨 Design System preview" })
+    expect(byApp("Shop MCP").deploy?.line).toBe("- [ ] Deploy 🤖 Shop MCP preview")
+    expect(byApp("🛒 Shop").deploy).toBeUndefined()
+  })
+
+  test("without its emoji, a bare Shop still leaves Shop MCP's item alone", () => {
+    const plain = ON_DEMAND.replace("🛒 Shop", "Shop").replace("🤖 Shop MCP |", "Shop MCP |").replace("🤖 Shop MCP preview", "Shop MCP preview")
+    const plainRows = extractPreviewRows(plain, config, 12134)
+
+    expect(plainRows.find((row) => row.app === "Shop")?.deploy).toBeUndefined()
+    expect(plainRows.find((row) => row.app === "Shop MCP")?.deploy?.checked).toBe(false)
+  })
+
+  test("a cell held together with non-breaking spaces still names its task", () => {
+    const nbsp = ON_DEMAND.replace("| 🎨 Design System |", "| 🎨 Design System |")
+    const design = extractPreviewRows(nbsp, config, 12134).find((row) => row.app.includes("Design"))
+
+    expect(design?.deploy?.checked).toBe(false)
+  })
+
+  test("the state reads off links first, then the build, then the task", () => {
+    expect(rows.map((row) => [row.app, previewState(row)])).toEqual([
+      ["🛒 Shop", "live"],
+      ["🎨 Design System", "deployable"],
+      ["🔑 Identity Provider", "requested"],
+      ["🤖 Shop MCP", "building"],
+      ["🖼️ Demo Studio", "live"],
+    ])
+  })
+
+  test("a live row with an hourglass is rebuilding, and worth watching", () => {
+    expect(isBuilding(byApp("🛒 Shop"))).toBe(true)
+    expect(rows.filter(isPending).map((row) => row.app)).toEqual(["🛒 Shop", "🔑 Identity Provider", "🤖 Shop MCP"])
+  })
+
+  test("the run behind the build cell", () => {
+    expect(runIdOf(byApp("Shop MCP"))).toBe("41609222736")
+  })
+
+  test("ticking changes the one line and nothing else", () => {
+    const line = byApp("Design System").deploy!.line
+    const ticked = tickDeployTask(ON_DEMAND, line)!
+
+    expect(ticked).toBe(ON_DEMAND.replace(line, "- [x] Deploy 🎨 Design System preview"))
+  })
+
+  test("nothing to tick once the item is gone or already ticked", () => {
+    const line = byApp("Design System").deploy!.line
+
+    expect(tickDeployTask(ON_DEMAND.replace(line, ""), line)).toBeNull()
+    expect(tickDeployTask(ON_DEMAND, byApp("Identity Provider").deploy!.line)).toBeNull()
+  })
+
+  test("a body with CRLF line ends ticks the same", () => {
+    const crlf = ON_DEMAND.replace(/\n/g, "\r\n")
+    const line = extractPreviewRows(crlf, config, 12134).find((row) => row.app.includes("Design"))!.deploy!.line
+
+    expect(tickDeployTask(crlf, line)).toContain("- [x] Deploy 🎨 Design System preview\r\n")
   })
 })
 

@@ -68,6 +68,32 @@ describe("the PR overview", () => {
     expect(keys.calls).toEqual(["previewRow open vercel", "previewRow open vercel", "previewRow copy vercel"])
   })
 
+  test("Enter deploys a row waiting on demand, and shows a building row's jobs (spec 113)", async () => {
+    const deployable = await prInfoPanelKeys(overviewState(), {
+      section: "previews",
+      preview: { app: "design", links: [], status: "on demand", deploy: { checked: false, line: "- [ ] Deploy design" } },
+    })
+    deployable.press(ENTER)
+    expect(deployable.calls).toEqual(["deploy design"])
+
+    const building = await prInfoPanelKeys(overviewState(), {
+      section: "previews",
+      preview: { app: "mcp", links: [], status: "building" },
+    })
+    expect(building.press(ENTER).defaultPrevented).toBe(true)
+    expect(building.calls).toEqual(["build mcp"])
+  })
+
+  test("Enter on a requested deploy says it is queued rather than asking again", async () => {
+    const keys = await prInfoPanelKeys(overviewState(), {
+      section: "previews",
+      preview: { app: "idp", links: [], status: "on demand", deploy: { checked: true, line: "- [x] Deploy idp" } },
+    })
+    keys.press(ENTER)
+    expect(keys.calls).toEqual([])
+    expect(keys.toast.current()?.message).toBe("idp is queued — riff shows it once the bot does")
+  })
+
   test("a bare d opens the diff on a file row and is the chain's anywhere else", async () => {
     const keys = await prInfoPanelKeys(overviewState(), { section: "files" })
     keys.press("d")

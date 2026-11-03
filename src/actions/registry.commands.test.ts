@@ -56,6 +56,7 @@ const SHOWN: Record<string, string> = {
   "edit-pr": "gP",
   "open-in-board": "gB",
   "pr-info": "gi",
+  "previews": "gp",
   "copy-pr-url": "gy",
   "copy-permalink": "gY",
   "copy-comment-link": "y (comments panel)",

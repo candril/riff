@@ -33,6 +33,10 @@ export interface PRInfoPanelDeps {
   /** Act on the preview row the cursor is on — open it, or copy it. When
    *  the row has several links, riff asks which (spec 068). */
   onPreviewRow?: (action: "open" | "copy", row: PreviewRow) => void
+  /** Ask the deploy bot to deploy the row, after a yes (spec 113). */
+  onDeployPreview?: (row: PreviewRow) => void
+  /** The jobs of the run building the row (spec 113). */
+  onPreviewBuild?: (row: PreviewRow) => void
   onToggleThreadResolved?: (rootCommentId: string) => void
   // Open the inline comment overlay (the thread view) on a review thread,
   // identified by its root comment id. Enter in the Conversation section
@@ -193,6 +197,12 @@ export function toggleHelp(deps: Deps): void {
 /** The app's own action behind a `g` chord, which the panel's standalone `r`/`o`/`y` would otherwise shadow. */
 export function runAction(deps: Deps, id: "refresh" | "open-in-browser" | "copy-pr-url" | "open-in-board"): void {
   deps.executeAction?.(id)
+}
+
+/** `gp`: the previews, open, the cursor on the first (spec 113). */
+export function focusPreviews(deps: Deps): void {
+  deps.getPanel()?.focusSection('previews')
+  deps.render()
 }
 
 /** `gx`/`gX`: the links in the view — a rendered body has no column to put a cursor on (spec 077). */

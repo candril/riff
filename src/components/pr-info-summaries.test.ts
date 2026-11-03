@@ -51,6 +51,18 @@ describe("previewsSummary", () => {
     expect(plain([])).toBe("from deploy-bot[bot]")
   })
 
+  test("counts what is building or requested in yellow (spec 113)", () => {
+    const set = previews()
+    const rows = [
+      ...set.rows,
+      { app: "mcp", links: [], status: "building" },
+      { app: "idp", links: [], status: "on demand", deploy: { checked: true, line: "- [x] Deploy idp" } },
+    ]
+    const spans = previewsSummary(set, rows)
+    expect(spans.map((span) => span.text).join("")).toBe("1 live · 2 building · 1 on demand  ·  from deploy-bot[bot]")
+    expect(spans[2]).toEqual({ text: "2 building", fg: theme.yellow })
+  })
+
   test("is empty without previews", () => {
     expect(previewsSummary(null, [])).toEqual([])
   })

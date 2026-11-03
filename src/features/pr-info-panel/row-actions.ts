@@ -6,9 +6,19 @@
 import type { KeyEvent } from "@opentui/core"
 import { closePRInfoPanel } from "../../state"
 import { copyToClipboard } from "../../utils/clipboard"
+import { previewState } from "../../utils/previews"
 import type { PRInfoPanelDeps } from "./actions"
 
 type Deps = PRInfoPanelDeps
+
+function flashToast(deps: Deps, message: string): void {
+  deps.toast.show(message, "info")
+  deps.render()
+  setTimeout(() => {
+    deps.toast.clear()
+    deps.render()
+  }, 2000)
+}
 
 /**
  * The key handler is synchronous, so the copy runs detached. The toast waits
@@ -86,10 +96,28 @@ export function activate(deps: Deps, key: KeyEvent): void {
     }
     case 'previews': {
       const preview = panel.getSelectedPreview()
-      if (preview) {
-        // The palette's picker takes focus in this same keypress.
-        key.preventDefault()
-        deps.onPreviewRow?.("open", preview)
+      if (!preview) break
+      // Each state's one thing to do (spec 113): open what is up, deploy
+      // what waits for it, show the jobs of what is building.
+      switch (previewState(preview)) {
+        case 'live':
+          // The palette's picker takes focus in this same keypress.
+          key.preventDefault()
+          deps.onPreviewRow?.("open", preview)
+          break
+        case 'deployable':
+          deps.onDeployPreview?.(preview)
+          break
+        case 'building':
+          key.preventDefault()
+          deps.onPreviewBuild?.(preview)
+          break
+        case 'requested':
+          flashToast(deps, `${preview.app} is queued — riff shows it once the bot does`)
+          break
+        case 'idle':
+          if (preview.built?.url) Bun.spawn(["open", preview.built.url])
+          break
       }
       break
     }
@@ -161,10 +189,14 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
     }
     case 'previews': {
       const preview = panel.getSelectedPreview()
-      if (preview) {
+      if (!preview) break
+      if (preview.links.length > 0) {
         // The palette's picker takes focus in this same keypress.
         key.preventDefault()
         deps.onPreviewRow?.("open", preview)
+      } else if (preview.built?.url) {
+        // Nothing deployed to open: the run is the row's page on GitHub.
+        Bun.spawn(["open", preview.built.url])
       }
       break
     }

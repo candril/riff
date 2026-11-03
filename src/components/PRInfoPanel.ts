@@ -707,6 +707,13 @@ export class PRInfoPanelClass {
     return this.moveTo(Nav.withCursor(this.nav, index))
   }
 
+  /** Open a section and stand on its first row, where `Enter` has something to act on (`gp`, spec 113). */
+  focusSection(section: PRInfoPanelSection): void {
+    this.setActiveSection(section)
+    if (!this.isSectionExpanded()) this.expandSection()
+    if (this.getItemCountForSection(section) > 0) this.moveCursorTo(0)
+  }
+
   private foldRow(index: number, open: boolean): void {
     if (this.nav.activeSection === 'conversation') {
       const item = this.flatConversationItems[index]
@@ -786,6 +793,10 @@ export class PRInfoPanelClass {
     this.previews = previews
     this.nav = Nav.clampCursor(this.nav, this.counts)
     this.push()
+  }
+
+  getPreviews(): PreviewSet | null {
+    return this.previews
   }
 
   /** The row the cursor is on, when it is on one (spec 068). */

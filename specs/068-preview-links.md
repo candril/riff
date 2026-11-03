@@ -17,8 +17,7 @@ what they are — a list of places you can open.
 
 ## Out of Scope
 
-- Triggering deploys. Those bots use task-list checkboxes as buttons; riff
-  will not tick them.
+- Triggering deploys: [113](./113-preview-deploys.md).
 - Rendering the source table well. It is still shown if you open it; making
   a thirty-URL table readable is not the goal.
 - Deployments from GitHub's own API. A second source can come later; the

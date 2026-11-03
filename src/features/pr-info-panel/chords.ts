@@ -86,6 +86,9 @@ export function createPanelChords(deps: act.PRInfoPanelDeps): PanelChords {
       case "y":
         act.runAction(deps, "copy-pr-url")
         return
+      case "p":
+        if (!key.shift) act.focusPreviews(deps)
+        return
       // Terminals differ in whether shift+b reports its name as `B` or `b`.
       case "B":
         act.runAction(deps, "open-in-board")

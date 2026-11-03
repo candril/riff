@@ -12,6 +12,7 @@ const G_SPELLINGS = {
   gs: "openSyncPreview",
   go: "openLink",
   gi: "openPrInfo",
+  gp: "openPreviews",
   gy: "copyPrUrl",
   "gB!": "openInBoard",
   "gb!": "openInBoard",

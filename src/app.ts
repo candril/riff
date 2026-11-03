@@ -5,7 +5,10 @@ import { getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from
 import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
 import { loadBranchPrReview } from "./features/branch-pr/review"
-import { fetchBehindBy, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
+import { fetchBehindBy, fetchIssueComment, fetchRunJobs, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
+import { updateIssueComment } from "./providers/github/mutations"
+import { openerCommand } from "./app/open-link"
+import { createPreviewDeploys } from "./features/preview-deploys"
 import { getPendingReview } from "./providers/github/review"
 import { fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
 import { getCommitParentSha } from "./providers/github/content"
@@ -305,6 +308,8 @@ export async function createApp(options: AppOptions = {}) {
     panel.setHiddenConversation(
       previews && config.hideSource ? new Set([previews.commentId]) : new Set()
     )
+    // A PR opened mid-build follows the build without a key pressed (spec 113).
+    previewDeploys.watch()
   }
 
   // ===== HELPERS =====
@@ -498,6 +503,31 @@ export async function createApp(options: AppOptions = {}) {
   const threadPanel = createThreadPanelIsland(renderer)
   const help = createHelpState()
   const confirm = createConfirmState()
+  const previewDeploys = createPreviewDeploys({
+    target: () => {
+      if (state.appMode !== "pr" || !state.prInfo) return null
+      return { owner: state.prInfo.owner, repo: state.prInfo.repo, previews: prInfoPanel?.getPreviews() ?? null }
+    },
+    confirm,
+    toast,
+    render: () => render(),
+    applyComment: (commentId, body) => {
+      if (!state.prInfo) return
+      const comments = state.prInfo.conversationComments ?? []
+      state = {
+        ...state,
+        prInfo: {
+          ...state.prInfo,
+          conversationComments: comments.map((comment) => (String(comment.id) === commentId ? { ...comment, body } : comment)),
+        },
+      }
+      if (prInfoPanel) refreshPreviews(prInfoPanel)
+    },
+    openUrl: (url) => {
+      Bun.spawn([openerCommand(), url], { stdout: "ignore", stderr: "ignore" })
+    },
+    api: { fetchComment: fetchIssueComment, updateComment: updateIssueComment, fetchRunJobs },
+  })
   const syncPreview = createSyncPreviewState()
   const reviewPreview = createReviewPreviewState()
   const pendingReview = createPendingReviewState()
@@ -1007,6 +1037,7 @@ export async function createApp(options: AppOptions = {}) {
     render,
     commentInput: prCommentInput,
     prInfoFilter,
+    getPanel: () => prInfoPanel,
   }
 
   const foldsContext: folds.FoldsContext = {
@@ -1420,6 +1451,7 @@ export async function createApp(options: AppOptions = {}) {
     chat: { state: chat, column: chatColumnState, input: chatColumn.input, atPicker: chatColumn.atPicker },
     help,
     confirm,
+    previewDeploys,
     syncPreview,
     reviewPreview,
     filePicker,

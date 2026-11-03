@@ -11,6 +11,7 @@ import type { AppState } from "../../state"
 import { openPRInfoPanel } from "../../state"
 import type { PrCommentInputState } from "./comment-input-state"
 import type { PrInfoFilterState } from "./filter-state"
+import type { PRInfoPanelClass } from "../../components"
 
 export interface PRInfoPanelOpenContext {
   getState: () => AppState
@@ -18,6 +19,18 @@ export interface PRInfoPanelOpenContext {
   render: () => void
   commentInput: Pick<PrCommentInputState, "close">
   prInfoFilter: Pick<PrInfoFilterState, "clear">
+  /** Where `gp` puts the cursor; the overview opens without it otherwise. */
+  getPanel?: () => Pick<PRInfoPanelClass, "focusSection"> | null
+| null
+}
+
+/** `gp` from anywhere: the overview, standing on the first preview (spec 113). */
+export function handleOpenPreviews(ctx: PRInfoPanelOpenContext): void {
+  const state = ctx.getState()
+  if (state.appMode !== "pr" || !state.prInfo) return
+  void handleOpenPRInfoPanel(ctx)
+  ctx.getPanel?.()?.focusSection('previews')
+  ctx.render()
 }
 
 /**

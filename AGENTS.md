@@ -363,6 +363,8 @@ Note that `gh pr view --json …` is GraphQL, not REST. The activity feed's
 timeline (spec 070) is REST and paginated, and only fetched when the feed is
 opened or refreshed; the stacked-PR check (spec 072) and the merge status's
 behind count (spec 108) run on load and refresh, never on a comment poll.
+The preview watch (spec 113) is REST: one `issues/comments/:id` read every
+15 seconds, only while a preview is building or waiting to deploy.
 
 ## Actions
 
@@ -410,6 +412,7 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Toggle Rendered Markdown | gR | The markdown file at the cursor rendered in place of its diff (spec 111); gR again brings the diff back |
 | Blame | gb | Who last changed the cursor's line; from its peek, go opens the commit or PR and y copies the sha |
 | PR Info | gi | Show PR details |
+| Previews | gp | Where the PR is deployed: open one, deploy one on demand, follow a build (spec 113) |
 | PR state / feed / diff | i / a / d | The three views; the same key again goes back |
 | Filter | Ctrl+f | Narrow whatever has focus |
 | Toggle File Panel | Ctrl+b | Show/hide file tree |

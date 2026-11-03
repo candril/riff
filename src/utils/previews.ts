@@ -28,7 +28,19 @@ export interface PreviewRow {
   status?: string
   /** The last column: when it was built, and the run that built it. */
   built?: PreviewLink
+  /**
+   * The task-list item that asks the bot to deploy this app (spec 113).
+   * `line` is the item exactly as the comment has it, which is how a
+   * fresh copy of the body is checked to still be asking the same thing.
+   */
+  deploy?: { checked: boolean; line: string }
 }
+
+/**
+ * What a row is doing, as far as its cells and its task say (spec 113).
+ * `live` has links to open, whether or not a newer build is on its way.
+ */
+export type PreviewState = "live" | "deployable" | "requested" | "building" | "idle"
 
 export interface PreviewSet {
   rows: PreviewRow[]
@@ -114,10 +126,92 @@ export function extractPreviewRows(
       if (row) rows.push(row)
     }
 
-    if (rows.length > 0 && (marked || rows.some((row) => row.links.length > 0))) return rows
+    if (rows.length > 0 && (marked || rows.some((row) => row.links.length > 0))) return withDeployTasks(rows, lines)
   }
 
   return []
+}
+
+const TASK_ITEM = /^\s*[-*] \[([ xX])\] (.+)$/
+
+/**
+ * Bots that deploy on demand put a task list under the table, one item per
+ * app, and tick-to-deploy is the whole interface. An item belongs to the
+ * longest app label it names, so `Shop` does not take `Shop MCP`'s item.
+ */
+function withDeployTasks(rows: PreviewRow[], lines: string[]): PreviewRow[] {
+  const tasks = new Map<number, NonNullable<PreviewRow["deploy"]>>()
+  for (const raw of lines) {
+    const line = raw.replace(/\r$/, "")
+    const item = TASK_ITEM.exec(line)
+    if (!item) continue
+    const text = normalizeLabel(stripMarkdown(item[2]!))
+    let owner = -1
+    rows.forEach((row, index) => {
+      if (!namesApp(text, normalizeLabel(row.app))) return
+      if (owner < 0 || row.app.length > rows[owner]!.app.length) owner = index
+    })
+    if (owner >= 0 && !tasks.has(owner)) tasks.set(owner, { checked: item[1] !== " ", line })
+  }
+  return rows.map((row, index) => {
+    const deploy = tasks.get(index)
+    return deploy ? { ...row, deploy } : row
+  })
+}
+
+function namesApp(text: string, app: string): boolean {
+  const at = text.indexOf(app)
+  if (at < 0) return false
+  const after = text[at + app.length]
+  return after === undefined || !/[\p{L}\p{N}]/u.test(after)
+}
+
+/**
+ * The same label as the table and the task list spell it: a bot keeps a
+ * cell from wrapping with non-breaking spaces, and an emoji arrives with
+ * or without its variation selector depending on who typed it.
+ */
+function normalizeLabel(text: string): string {
+  return text.replace(/️/g, "").replace(/\s+/g, " ").trim()
+}
+
+/** The row's state, from its links, its status, its build cell and its task. */
+export function previewState(row: PreviewRow): PreviewState {
+  if (row.links.length > 0) return "live"
+  if (isBuilding(row)) return "building"
+  if (row.deploy?.checked) return "requested"
+  if (row.deploy) return "deployable"
+  return "idle"
+}
+
+/** A build is under way: the bot says so in the cell, or has an hourglass where the time goes. */
+export function isBuilding(row: PreviewRow): boolean {
+  return /build/i.test(row.status ?? "") || Boolean(row.built?.label.includes("⏳"))
+}
+
+/** Whether a row is waiting on something worth checking again soon. */
+export function isPending(row: PreviewRow): boolean {
+  return isBuilding(row) || previewState(row) === "requested"
+}
+
+/** The Actions run behind the build cell, when it links one. */
+export function runIdOf(row: PreviewRow): string | null {
+  return /\/actions\/runs\/(\d+)/.exec(row.built?.url ?? "")?.[1] ?? null
+}
+
+/**
+ * `body` with the row's deploy item ticked, or null when that item is no
+ * longer there unticked — the bot rewrote it, or someone got there first.
+ * Only that one line changes: the bot rewrites this comment as it works,
+ * and anything else taken from an older copy would undo its edits.
+ */
+export function tickDeployTask(body: string, line: string): string | null {
+  if (!/\[ \]/.test(line)) return null
+  const lines = body.split("\n")
+  const index = lines.findIndex((each) => each.replace(/\r$/, "") === line)
+  if (index < 0) return null
+  lines[index] = lines[index]!.replace("[ ]", "[x]")
+  return lines.join("\n")
 }
 
 function buildRow(
@@ -210,6 +304,7 @@ function escapeRegex(text: string): string {
 function stripMarkdown(cell: string): string {
   return cell
     .replace(MARKDOWN_LINK, "$1")
+    .replace(/<br\s*\/?>/gi, " ")
     .replace(/[*_`]/g, "")
     .replace(/<[^>]+>/g, "")
     .trim()

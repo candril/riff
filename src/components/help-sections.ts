@@ -137,6 +137,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["gr", "Refresh from GitHub"],
       ["i / a / d", "PR state / feed / diff"],
       ["c m r b t p", "Feed: toggle a type · u unseen · Esc all"],
+      ["gp", "Previews: open, deploy, follow a build"],
       ["go / gy", "Open PR / copy its URL"],
       ["gB", "Open PR in riff board"],
       ["gY", "Copy permalink"],

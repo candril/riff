@@ -568,6 +568,14 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr",
   },
   {
+    id: "previews",
+    label: "Previews",
+    description: "Where this PR is deployed — open one, deploy one on demand, or follow its build",
+    command: "gchord.openPreviews",
+    category: "github",
+    available: (state) => state.appMode === "pr",
+  },
+  {
     id: "copy-pr-url",
     label: "Copy PR URL",
     description: "Copy the PR URL to clipboard",

@@ -40,6 +40,22 @@ describe("previews", () => {
     expect(bgAt(spans, 4, 16)).toEqual(ints(theme.base))
     expect(fgAt(spans, 4, 17)).toEqual(ints(theme.subtext1))
   })
+
+  test("gp opens the folded section with the cursor on its first row, which says what Enter does (spec 113)", async () => {
+    const set = previews()
+    set.rows[1] = { ...set.rows[1]!, deploy: { checked: false, line: "- [ ] Deploy admin preview" } }
+    const { lines, spans, panel } = await mount({
+      prepare: (p) => {
+        p.setPreviews(set)
+        p.focusSection("previews")
+        p.moveCursor(1)
+      },
+    })
+    expect(panel.getSelectedPreview()?.app).toBe("admin")
+    const [, y] = find(lines, "admin")
+    expect(lines[y]).toBe("    admin       on demand  ↵ deploy")
+    expect(bgAt(spans, 4, y)).toEqual(ints(theme.surface0))
+  })
 })
 
 /** The rows a list section has drawn, one per cursor stop. */

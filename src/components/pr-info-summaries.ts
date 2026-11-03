@@ -6,7 +6,7 @@
 
 import type { PrCommit } from "../providers/github/types"
 import { theme } from "../theme"
-import type { PreviewRow, PreviewSet } from "../utils/previews"
+import { previewState, type PreviewRow, type PreviewSet } from "../utils/previews"
 import type { SummarySpan } from "./fit-spans"
 import { formatTimeAgo } from "./pr-info-format"
 import type { ConversationItem } from "./pr-info-items"
@@ -14,16 +14,18 @@ import type { ConversationItem } from "./pr-info-items"
 const quiet = (text: string): SummarySpan => ({ text, fg: theme.subtext0 })
 
 /**
- * Who posted the previews, and how many are up — the rows themselves are
- * one line per app (spec 068). A row without links is built on demand; the
+ * Who posted the previews, how many are up and how many are on their way
+ * — the rows themselves are one line per app (spec 068, spec 113). The
  * comment's table has no failed or expired state to tell apart.
  */
 export function previewsSummary(previews: PreviewSet | null, visible: PreviewRow[]): SummarySpan[] {
   if (!previews) return []
-  const live = visible.filter((row) => row.links.length > 0).length
-  const other = visible.length - live
+  const live = visible.filter((row) => previewState(row) === "live").length
+  const underway = visible.filter((row) => previewState(row) === "building" || previewState(row) === "requested").length
+  const other = visible.length - live - underway
   const counts = [
     live > 0 ? { text: `${live} live`, fg: theme.green } : null,
+    underway > 0 ? { text: `${underway} building`, fg: theme.yellow } : null,
     other > 0 ? quiet(`${other} on demand`) : null,
   ].filter((span): span is SummarySpan => span !== null)
   const joined = counts.flatMap((span, i) => (i === 0 ? [span] : [quiet(" · "), span]))

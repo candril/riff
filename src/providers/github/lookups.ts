@@ -53,6 +53,51 @@ export function readPrLookups(stdout: string, stderr: string, repos: readonly { 
   return lookups
 }
 
+export interface IssueCommentSnapshot {
+  body: string
+  updatedAt: string
+}
+
+/**
+ * One PR-level comment as it is now. REST, so watching a deploy bot's
+ * comment every few seconds costs none of the GraphQL points (spec 113).
+ */
+export async function fetchIssueComment(
+  owner: string,
+  repo: string,
+  commentId: number,
+): Promise<IssueCommentSnapshot> {
+  return safeGhCommand(async () => {
+    const result = await $`gh api repos/${owner}/${repo}/issues/comments/${commentId}`.quiet().json() as {
+      body?: string
+      updated_at?: string
+    }
+    return { body: result.body ?? "", updatedAt: result.updated_at ?? "" }
+  })
+}
+
+export interface RunJob {
+  name: string
+  status: string
+  conclusion: string | null
+  url: string
+}
+
+/** The jobs of one Actions run, as they stand (spec 113). */
+export async function fetchRunJobs(owner: string, repo: string, runId: string): Promise<RunJob[]> {
+  return safeGhCommand(async () => {
+    const result = await $`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs?per_page=100`.quiet().json() as {
+      jobs?: { name?: string; status?: string; conclusion?: string | null; html_url?: string }[]
+    }
+    return (result.jobs ?? []).map((job) => ({
+      name: job.name ?? "",
+      status: job.status ?? "",
+      conclusion: job.conclusion ?? null,
+      url: job.html_url ?? "",
+    }))
+  })
+}
+
 /**
  * Fetch annotations for a single check run (spec 043).
  */

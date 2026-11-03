@@ -1,7 +1,7 @@
 import type { PrCommit } from "../providers/github/types"
 import { theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
-import type { PreviewRow } from "../utils/previews"
+import { isBuilding, previewState, type PreviewRow } from "../utils/previews"
 import { formatTimeAgo, truncate } from "./pr-info-format"
 
 export interface ListSegment {
@@ -47,6 +47,32 @@ export function row(
 }
 
 /**
+ * What the row says after its app, by state (spec 113). Something under
+ * way is yellow and says so in words; the hourglass the bot puts where the
+ * time goes says nothing a word doesn't. What `Enter` would do shows only
+ * on the cursor's row, where it is a hint rather than noise.
+ */
+function stateSegments(preview: PreviewRow, selected: boolean): ListSegment[] {
+  const built = preview.built && !isBuilding(preview) ? [{ text: `  ${preview.built.label}`, fg: theme.overlay0 }] : []
+  const hint = (text: string): ListSegment[] => (selected ? [{ text: `  ${text}`, fg: theme.overlay1 }] : [])
+  switch (previewState(preview)) {
+    case "live":
+      return [
+        { text: preview.links.map((link) => link.label).join("  "), fg: theme.blue },
+        ...(isBuilding(preview) ? [{ text: "  rebuilding", fg: theme.yellow }] : built),
+      ]
+    case "deployable":
+      return [{ text: preview.status ?? "on demand", fg: theme.overlay0 }, ...built, ...hint("↵ deploy")]
+    case "requested":
+      return [{ text: "deploy requested", fg: theme.yellow }, ...built]
+    case "building":
+      return [{ text: "building", fg: theme.yellow }, ...hint("↵ jobs")]
+    case "idle":
+      return [...(preview.status ? [{ text: preview.status, fg: theme.overlay0 }] : []), ...built]
+  }
+}
+
+/**
  * One row per app: its label, then the places it is deployed by name
  * (spec 068). The URLs themselves are never drawn — that is the whole
  * point of lifting them out of the table.
@@ -66,12 +92,7 @@ export function previewRows(previews: PreviewRow[], input: ListInput): ListRows 
         fg: selected ? theme.text : theme.subtext1,
       },
     ]
-    if (preview.links.length > 0) {
-      segments.push({ text: preview.links.map((link) => link.label).join("  "), fg: theme.blue })
-    } else if (preview.status) {
-      segments.push({ text: preview.status, fg: theme.overlay0 })
-    }
-    if (preview.built) segments.push({ text: `  ${preview.built.label}`, fg: theme.overlay0 })
+    segments.push(...stateSegments(preview, selected))
     return row("previews", index, `${index}:${preview.app}`, segments, input)
   })
   return { rows, note: null }
