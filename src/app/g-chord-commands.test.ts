@@ -14,8 +14,8 @@ const G_SPELLINGS = {
   gi: "openPrInfo",
   gp: "openPreviews",
   gy: "copyPrUrl",
-  "gB!": "openInBoard",
-  "gb!": "openInBoard",
+  "gB!": "toggleBlamePeek",
+  "gb!": "toggleBlamePeek",
   "gY!": "copyPermalink",
   "gy!": "copyPermalink",
   gf: "followLink",
@@ -35,7 +35,7 @@ const G_SPELLINGS = {
   "gd!": "diffInTmuxWindow",
   "gP!": "editOrCreatePr",
   "gp!": "editOrCreatePr",
-  gb: "toggleBlamePeek",
+  gb: "toggleBlameColumn",
   gl: "toggleLinePeek",
   gm: "matchBracket",
   "gR!": "toggleRendered",
@@ -84,6 +84,7 @@ function gChords(more: Partial<AppState> = {}, blameLink = false) {
         return blameLink
       },
     },
+    blameColumn: { toggle: () => void ran.push("blameColumn.toggle") },
   } as unknown as GChordDeps
   const key = () => new KeyEvent(parseKeypress("C")!)
   return { commands: gChordCommands(deps), ran, state: () => state, commentsPicker, key }
@@ -166,11 +167,20 @@ describe("gP", () => {
   })
 })
 
-test("gb opens the blame peek only in the diff view", () => {
+test("gB opens the blame peek only in the diff view", () => {
   const diff = gChords({ viewMode: "diff" })
   diff.commands.toggleBlamePeek(diff.key())
   expect(diff.ran).toEqual(["blame.toggle"])
   const feed = gChords({ viewMode: "feed" })
   feed.commands.toggleBlamePeek(feed.key())
+  expect(feed.ran).toEqual([])
+})
+
+test("gb toggles the blame column only in the diff view", () => {
+  const diff = gChords({ viewMode: "diff" })
+  diff.commands.toggleBlameColumn(diff.key())
+  expect(diff.ran).toEqual(["blameColumn.toggle"])
+  const feed = gChords({ viewMode: "feed" })
+  feed.commands.toggleBlameColumn(feed.key())
   expect(feed.ran).toEqual([])
 })

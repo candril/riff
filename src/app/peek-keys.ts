@@ -10,7 +10,7 @@ type Chord = { chordPending(): boolean }
 /**
  * The blame peek and the line peek. The blame peek outranks the line peek,
  * so it registers second: later registration wins. `blame` is the one the
- * `g` layer's `gb` and `go` reach, so a single object owns every blame
+ * `g` layer's `gB` and `go` reach, so a single object owns every blame
  * request.
  */
 export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, chord: Chord, blame: BlameKeys): () => void {

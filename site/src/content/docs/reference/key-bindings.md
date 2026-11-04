@@ -40,9 +40,9 @@ These are for moving the view on its own.
 | `zL` `zH` | Scroll half a screen right, left |
 | `zs` `ze` | Put the cursor's column at the left, right edge |
 | `gl` | Peek the line in full — or, in a markdown table, the table as a grid |
-| `gb` | Who last changed this line: its commit and PR; then `go` opens it and `y` copies the sha |
+| `gB` | Who last changed this line: its commit and PR; then `go` opens it, `y` copies the sha and `gB` closes it |
 | `zw` | Toggle soft wrap for the whole diff |
-| `zB` | Who last changed each line of this file, as a dimmed column beside the line numbers |
+| `gb` | Who last changed each line of this file, as a dimmed column beside the line numbers |
 
 ## Jumping
 
@@ -193,7 +193,6 @@ replies there or expands a section.
 | `c` `m` `r` `b` `t` `p` `u` | In the feed: toggle a type, unseen only; `Esc` puts everything back |
 | `za` | In the feed: open a commit into its files |
 | `go` | Open the PR in a browser |
-| `gB` | Open the PR in riff board, from every view of a PR; from the diff it opens at the file and line under the cursor. PRs only; elsewhere it says so |
 | `gy` | Copy the PR URL |
 | `gY` | Copy a permalink to the selection, line, or file |
 | `gP` | Edit the PR title and body — or create a PR, in local mode |

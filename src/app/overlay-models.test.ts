@@ -155,7 +155,7 @@ describe("overlayModels", () => {
     expect(open.hunkPeek).not.toBeNull()
   })
 
-  test("gl's and gb's peeks are drawn only over the diff", () => {
+  test("gl's and gB's peeks are drawn only over the diff", () => {
     for (const viewMode of ["feed", "state"] as const) {
       const models = overlayModels(frame({ viewMode }, { linePeek, blamePeek }))
       expect(models.diffPeek).toBeNull()

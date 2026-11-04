@@ -555,7 +555,6 @@ export const actions: Action[] = [
     id: "open-in-board",
     label: "Open in riff board",
     description: "Open the PR in riff board",
-    command: "gchord.openInBoard",
     category: "github",
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },

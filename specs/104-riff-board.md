@@ -5,9 +5,9 @@
 ## Description
 
 riff board is the user's own web app for working through a pull request,
-run separately on their machine. `gB` hands the browser the board's page
-for the PR in view, at the place being read when there is one, so moving
-from the terminal to the board costs one chord.
+run separately on their machine. The Ctrl+p palette's "Open in riff
+board" hands the browser the board's page for the PR in view, at the place
+being read when there is one.
 
 ## Out of Scope
 
@@ -20,11 +20,11 @@ from the terminal to the board costs one chord.
 
 ### P1
 
-- **`gB` opens `<board.url>/pr/<owner>/<repo>/<number>`** for the current
-  PR. `board.url` is configuration (`[board] url`, default
+- **"Open in riff board" opens `<board.url>/pr/<owner>/<repo>/<number>`**
+  for the current PR. It is reachable from the Ctrl+p palette only, has no
+  key and shows no shortcut, and the palette offers it only where a PR is
+  loaded. `board.url` is configuration (`[board] url`, default
   `http://localhost:4477`), since the board is the user's app, not riff's.
-  The action menu's "Open in riff board" does the same, and shows only
-  where a PR is loaded.
 - **Outside PR mode it says so**: a local or range review, or a PR whose
   info has not loaded, gets the notice "riff board opens GitHub PRs only"
   instead of a URL.
@@ -50,10 +50,10 @@ shares the resolver and the limit.
   `openPrInBoard`; the line comes from the permalink feature's
   `diffTargetAt`, so the board and the PR diff link agree on what is under
   the cursor.
-- The chord is matched as `gB!` or `gb!` in `src/app/g-chord-commands.ts`, and
-  in the overview's own `g` chords in `src/features/pr-info-panel/chords.ts`,
-  as terminals differ in how they report shift+b. Both run the
-  `open-in-board` action; `src/app.ts` hands it the location.
-- `src/actions/registry.ts`: the menu row; `src/config/`: `[board] url`.
+- `src/actions/registry.ts`: the palette row, which names no keymap
+  command, so the palette shows no hint for it.
+  `src/features/action-menu/execute.ts` runs it in its own
+  `open-in-board` case; `src/app.ts` hands it the location.
+- `src/config/`: `[board] url`.
 - User docs: `site/src/content/docs/reference/github.md`,
   `key-bindings.md` and `configuration.md`.

@@ -78,11 +78,14 @@ review.
 | `gi` / `i` | PR overview |
 | `a` / `d` | The feed / the diff |
 | `go` | Open the PR in a browser |
-| `gB` | Open the PR in riff board, at the [`board.url`](/riff/reference/configuration/#board) you configured, from every view of a PR; from the diff it opens at the file and line under the cursor |
 | `gy` | Copy the PR URL |
 | `gY` | Copy a permalink to the selection, the line, or the file |
 | `gP` | Edit the PR title and body in `$EDITOR` |
 | `gc` | Check out the PR branch, then open the current file in `$EDITOR` |
+
+**Open in riff board** in the action menu (Ctrl+p; it has no key) opens the PR in riff board, at
+the [`board.url`](/riff/reference/configuration/#board) you configured, from every view of a PR;
+from the diff it opens at the file and line under the cursor.
 
 **Copy PR Diff Link** in the action menu is the other kind of link: it points at the change in
 the PR's Files-changed tab rather than at the blob. Permalinks pin to the branch, so they survive

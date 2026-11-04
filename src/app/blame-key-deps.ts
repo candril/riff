@@ -2,7 +2,7 @@ import type { AppKeyContext } from "./key-context"
 import type { BlameKeysContext } from "../features/blame/keys"
 import type { BlameColumnKeysContext } from "../features/blame/column-keys"
 
-/** What `gb`, its peek and the blame column need of the app. */
+/** What `gB`, its peek and the `gb` blame column need of the app. */
 export function blameKeysContext(ctx: AppKeyContext): BlameKeysContext & Pick<BlameColumnKeysContext, "columns"> {
   return {
     deps: ctx.blame,

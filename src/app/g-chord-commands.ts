@@ -33,8 +33,10 @@ export interface GChordDeps {
   foldsContext: folds.FoldsContext
   refreshContext: { handleRefresh: () => Promise<void> }
   followLinkContext: followLink.FollowLinkContext
-  /** `gb` and `go`: the one object that owns every blame request, shared with the peek's layer. */
+  /** `gB` and `go`: the one object that owns every blame request, shared with the peek's layer. */
   blame: Pick<BlameKeys, "toggle" | "openLink">
+  /** `gb`: the blame column for the file under the cursor (spec 103). */
+  blameColumn: { toggle(): void }
   linePeek: Pick<LinePeekState, "open" | "toggle">
   blamePeek: Pick<BlamePeekState, "open">
   vimHandler: Pick<VimMotionHandler, "jumpToMatchingBracket">
@@ -51,8 +53,8 @@ export const G_SEQUENCES = {
   gi: "openPrInfo",
   gp: "openPreviews",
   gy: "copyPrUrl",
-  "gB!": "openInBoard",
-  "gb!": "openInBoard",
+  "gB!": "toggleBlamePeek",
+  "gb!": "toggleBlamePeek",
   "gY!": "copyPermalink",
   "gy!": "copyPermalink",
   gf: "followLink",
@@ -72,7 +74,7 @@ export const G_SEQUENCES = {
   "gd!": "diffInTmuxWindow",
   "gP!": "editOrCreatePr",
   "gp!": "editOrCreatePr",
-  gb: "toggleBlamePeek",
+  gb: "toggleBlameColumn",
   gl: "toggleLinePeek",
   gm: "matchBracket",
   "gR!": "toggleRendered",
@@ -98,7 +100,6 @@ export const G_PALETTE_KEYS: Partial<Record<GCommand, string>> = {
   openPrInfo: "gi",
   openPreviews: "gp",
   copyPrUrl: "gy",
-  openInBoard: "gB",
   copyPermalink: "gY",
   followLink: "gf",
   followUrl: "gx",
@@ -148,7 +149,6 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
     copyPrUrl: taking(() => {
       if (inPr()) deps.executeAction("copy-pr-url")
     }),
-    openInBoard: taking(() => deps.executeAction("open-in-board")),
     copyPermalink: taking(() => deps.executeAction("copy-permalink")),
     followLink: taking(() => followLink.handleFollowLink(deps.followLinkContext)),
     followLinkInTmux: taking(() => followLink.handleFollowLink(deps.followLinkContext, { tmux: true })),
@@ -178,6 +178,9 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
     toggleBlamePeek: taking(() => {
       // Who last changed the cursor's line, and the commit that says why (spec 103).
       if (deps.getState().viewMode === "diff") deps.blame.toggle()
+    }),
+    toggleBlameColumn: taking(() => {
+      if (deps.getState().viewMode === "diff") deps.blameColumn.toggle()
     }),
     toggleLinePeek: taking(() => {
       // The whole line, wrapped, for when scrolling through it sideways

@@ -1,5 +1,5 @@
 /**
- * The `gb` blame peek's state. The feature owns it rather than AppState,
+ * The `gB` blame peek's state. The feature owns it rather than AppState,
  * which sheds one slice per feature this way (spec 100, M6; ADR-003).
  */
 
@@ -8,7 +8,7 @@ import type { BlamePeekStatus } from "../../components/blame-peek-model"
 import type { LineBlame } from "../../providers/blame/source"
 import type { BlameTarget } from "./target"
 
-/** `gb`'s peek: the line it blames and what is known about it so far. */
+/** `gB`'s peek: the line it blames and what is known about it so far. */
 export type BlamePeekSnapshot = { target: BlameTarget; request: number } & BlamePeekStatus
 
 export type BlameOutcome = { result: LineBlame | null } | { message: string }

@@ -26,8 +26,6 @@ export interface ZChordDeps {
   foldsContext: folds.FoldsContext
   /** `za` in the feed: the commit row under the cursor opened into the files it touched, or closed. */
   toggleFeedRow: () => void
-  /** `zB`: the blame column for the file under the cursor (spec 103). */
-  blameColumn: { toggle(): void }
   /** Whether the line peek is up, under which no `z` chord acts. */
   linePeek: Pick<LinePeekState, "open">
   /** Whether the blame peek is up, under which no `z` chord acts. */
@@ -47,8 +45,10 @@ export const Z_SEQUENCES = {
   "zm!": "collapseAllFolds",
   zm: "collapseAllFolds",
   zw: "toggleWrap",
-  "zB!": "toggleBlameColumn",
-  "zb!": "toggleBlameColumn",
+  // Bound to nothing, but taken: a z sequence that breaks off hands its
+  // second key on, and this one would reach the diff as `B`, WORD back.
+  "zB!": "swallow",
+  "zb!": "swallow",
   zl: "scrollRight",
   zh: "scrollLeft",
   "zL!": "scrollHalfRight",
@@ -131,9 +131,7 @@ export function zChordCommands(deps: ZChordDeps): Record<ZCommand, () => boolean
       deps.rebuildLineMapping()
       deps.render()
     }),
-    toggleBlameColumn: taking(() => {
-      if (deps.getState().viewMode === "diff") deps.blameColumn.toggle()
-    }),
+    swallow: taking(() => {}),
     scrollRight: taking(() => scrollColumns(1)),
     scrollLeft: taking(() => scrollColumns(-1)),
     scrollHalfRight: halfColumns(1),

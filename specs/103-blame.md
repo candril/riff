@@ -26,20 +26,23 @@ context line, or one revealed by expanding context.
 
 ### P1 - The peek
 
-- **`gb` on the cursor line opens a borderless peek** on `mantle`.
+- **`gB` on the cursor line opens a borderless peek** on `mantle`; `gB`
+  again, `q` or Esc closes it.
 - **The peek names the commit**: its short sha, author, date and subject,
   plus the PR that introduced it when GitHub knows one.
 - **The side follows the line.** A removed line is blamed in the base;
   any other line in the head.
 - **From the peek**, `go` opens the commit, or its PR when there is one,
-  in the browser, and `y` copies the full sha.
+  in the browser, and `y` copies the full sha. Every other `g` and `z`
+  chord, `gb` among them, does nothing while the peek is up.
 - **A line not yet committed**, in a git working tree, says so instead of
   naming a commit.
 
 ### P2 - The column
 
 - **Blame for the whole file** as a dimmed column beside the line numbers,
-  toggled per file. A run of lines from the same commit names it once.
+  toggled per file with `gb`. A run of lines from the same commit names it
+  once.
 
 ## Technical Notes
 
@@ -91,13 +94,13 @@ never kept: it changes while riff runs.
 A file the side does not have, and a line past its end, answer null;
 any other failure carries the tool's message.
 
-The base side of a renamed file is read under its old name, by the `gb`
+The base side of a renamed file is read under its old name, by the `gB`
 peek as by the column, so the peek names `old/path:line` with `base`.
 
 ### The column (P2)
 
-`zB` turns the column on or off for the file under the cursor: the file
-shown, or in all files the one the cursor's line or header belongs to.
+`gb`, in the diff view, turns the column on or off for the file under the
+cursor: the file shown, or in all files the one the cursor's line or header belongs to.
 Turning it on reads the whole file's blame through `fileBlame`, the same
 cached read `lineBlame` answers from, for each side the file has: an added
 file asks no base, a deleted one no head, and a rename's base is read under
@@ -134,10 +137,14 @@ blame loads, `…` stands at the top of its lines.
 - `src/providers/blame/pr-lookup.ts`: `prForCommit`.
 - `src/providers/blame/source.ts`: `createBlameSource`, with injectable
   runners for every spawn; `fileBlame` and `lineBlame` share one cache.
-- `src/features/blame/keys.ts`, `peek-state.ts`: `gb`'s peek.
+- `src/features/blame/keys.ts`, `peek-state.ts`: `gB`'s peek.
+- `src/app/g-chord-commands.ts`: `gb` (the column) and `gB!`/`gb!` (the
+  peek), both spellings of shift+b as terminals differ in reporting it.
+- `src/app/z-chord-commands.ts`: `zB` is taken and does nothing, so its
+  shifted b never breaks off the sequence and reaches the diff as `B`.
 - `src/app/peek-leaves.ts`: which chords may act while a peek is up, and
   which keys either peek leaves to the handlers behind it.
-- `src/features/blame/column-keys.ts`, `column-state.ts`: `zB` and the
+- `src/features/blame/column-keys.ts`, `column-state.ts`: `gb` and the
   per-file column state.
 - `src/features/blame/demo-source.ts`: `--demo`'s blame, two commits per
   file and no network.

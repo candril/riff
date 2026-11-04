@@ -68,7 +68,7 @@ export function blameColumnCells(lines: readonly DiffLine[], pick: (line: DiffLi
 /**
  * The side and line number a row blames. Split's halves blame the side
  * whose numbers they draw; unified draws one row per line, so the line's
- * own type decides, as gb's peek does.
+ * own type decides, as gB's peek does.
  */
 export function blameSideFor(
   view: "unified" | "split",

@@ -52,7 +52,7 @@ afterEach(async () => {
   await done?.dispose()
 })
 
-/** Every outside call gb can make, recorded, with each answer held until the test settles it. */
+/** Every outside call gB can make, recorded, with each answer held until the test settles it. */
 function stubBlame(repo: RepoRef | null = { owner: "o", repo: "r" }) {
   const asked: [string, BlameSide, number][] = []
   const pending: { resolve: (r: LineBlame | null) => void; reject: (e: Error) => void }[] = []
@@ -93,11 +93,11 @@ async function mount(repo?: RepoRef | null, width = 120, diff = DIFF) {
   return { ...blame, ...keys }
 }
 
-describe("gb", () => {
+describe("gB", () => {
   test("on an added line asks the head for its new number, and the peek fills in when blame arrives", async () => {
     const { asked, answer, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     expect(asked).toEqual([["src/greet.ts", "head", 2]])
     expect(await app!.frame()).toContain("Reading blame…")
 
@@ -113,14 +113,14 @@ describe("gb", () => {
   test("on a removed line asks the base", async () => {
     const { asked, jumpTo } = await mount()
     jumpTo(lineOf('  return "hi"'))
-    press("g", "b")
+    press("g", "B")
     expect(asked).toEqual([["src/greet.ts", "base", 2]])
   })
 
   test("on a removed line of a renamed file asks the base under its old name, and the peek names it", async () => {
     const { asked, jumpTo } = await mount(undefined, 120, RENAMED)
     jumpTo(lineOf('  return "hi"'))
-    press("g", "b")
+    press("g", "B")
     expect(asked).toEqual([["src/hello.ts", "base", 2]])
     const frame = await app!.frame()
     expect(frame).toContain("src/hello.ts:2")
@@ -130,7 +130,7 @@ describe("gb", () => {
   test("y copies the full sha and go opens the PR", async () => {
     const { answer, copied, opened, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     answer(commit(PR))
     await flush()
     press("y")
@@ -145,7 +145,7 @@ describe("gb", () => {
   test("go opens the commit when no PR brought it in", async () => {
     const { answer, opened, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     answer(commit(null))
     await flush()
     press("g", "o")
@@ -156,7 +156,7 @@ describe("gb", () => {
   test("go with no GitHub remote says so instead of opening anything", async () => {
     const { answer, opened, jumpTo } = await mount(null)
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     answer(commit(null))
     await flush()
     press("g", "o")
@@ -169,7 +169,7 @@ describe("gb", () => {
     const { vimState, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
     const before = vimState().line
-    press("g", "b")
+    press("g", "B")
     expect(await app!.frame()).toContain("Reading blame…")
     press("j")
     expect(vimState().line).toBe(before)
@@ -181,22 +181,22 @@ describe("gb", () => {
     expect(vimState().line).toBe(before + 1)
   })
 
-  test("q and gb again close the peek too", async () => {
+  test("q and gB again close the peek too", async () => {
     const { jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     press("q")
     expect(app!.blamePeek.open()).toBe(false)
-    press("g", "b")
+    press("g", "B")
     expect(app!.blamePeek.open()).toBe(true)
-    press("g", "b")
+    press("g", "B")
     expect(app!.blamePeek.open()).toBe(false)
   })
 
   test("a failed read shows its message", async () => {
     const { fail, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     fail("jj: Revision `trunk()` doesn't exist")
     await flush()
     expect(await app!.frame()).toContain("jj: Revision `trunk()` doesn't exist")
@@ -205,7 +205,7 @@ describe("gb", () => {
   test("a line not yet committed says so, and y copies nothing", async () => {
     const { answer, copied, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     answer({ line: { kind: "uncommitted" }, pr: null })
     await flush()
     expect(await app!.frame()).toContain("Not committed yet")
@@ -218,7 +218,7 @@ describe("gb", () => {
   test("on a divider there is no line to blame", async () => {
     const { asked, jumpTo } = await mount()
     jumpTo(app!.ctx.getLineMapping().allLines.findIndex((line) => line.type === "divider"))
-    press("g", "b")
+    press("g", "B")
     expect(asked).toEqual([])
     expect(app!.blamePeek.open()).toBe(false)
     expect(app!.toast.current()?.message).toBe("No line to blame here")
@@ -238,7 +238,7 @@ describe("gb", () => {
     jumpTo(lineOf('  return "hi"'))
     app!.ctx.split.syncPane()
     expect(app!.ctx.split.splitRows()?.side).toBe("left")
-    press("g", "b")
+    press("g", "B")
     expect(asked).toEqual([["src/greet.ts", "base", 2]])
   })
 
@@ -246,7 +246,7 @@ describe("gb", () => {
     const { vimState, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
     const before = vimState().line
-    press("g", "b")
+    press("g", "B")
     press("g", "g", "g", "i", "g", "l")
     const state = app!.ctx.getState()
     expect(vimState().line).toBe(before)
@@ -256,12 +256,12 @@ describe("gb", () => {
     expect(await app!.frame()).toContain("Reading blame…")
   })
 
-  test("with the line peek up gb does not open the blame peek", async () => {
+  test("with the line peek up gB does not open the blame peek", async () => {
     const { asked, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
     press("g", "l")
     expect(app!.linePeek.open()).toBe(true)
-    press("g", "b")
+    press("g", "B")
     expect(asked).toEqual([])
     expect(app!.blamePeek.open()).toBe(false)
   })
@@ -269,7 +269,7 @@ describe("gb", () => {
   test("a view switch closes the peek, and it stays closed on return", async () => {
     const { jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     expect(await app!.frame()).toContain("Reading blame…")
     // The peek holds i and d, so the switch comes from outside the keys, each followed by a pass as the app's are.
     app!.ctx.setState((s) => switchView({ ...s, appMode: "pr" }, "state"))
@@ -285,7 +285,7 @@ describe("gb", () => {
   test("while blame loads, go and y say so", async () => {
     const { opened, copied, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     press("y")
     expect(app!.toast.current()?.message).toBe("Blame is still loading")
     app!.toast.clear()
@@ -299,7 +299,7 @@ describe("gb", () => {
   test("after a failed read, go and y say there is no commit", async () => {
     const { fail, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     fail("boom")
     await flush()
     press("y")
@@ -311,7 +311,7 @@ describe("gb", () => {
   test("go on a line not yet committed says so", async () => {
     const { answer, opened, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    press("g", "b")
+    press("g", "B")
     answer({ line: { kind: "uncommitted" }, pr: null })
     await flush()
     press("g", "o")

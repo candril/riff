@@ -7,7 +7,6 @@ import { failOnKeymapErrors } from "../testing/keymap-errors"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
-import { openPrInBoard } from "../features/riff-board"
 import { overviewState, prInfoPanelKeys } from "../testing/pr-info-panel-keys"
 import { prInfo } from "../testing/pr-info"
 
@@ -35,11 +34,11 @@ afterEach(async () => {
  */
 function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) => void, cursorLine = 0) {
   const { ctx: render } = mounted
-  // Plain gb is the blame peek's toggle, which reads the cursor's line and asks for its blame.
+  // gB is the blame peek's toggle, which reads the cursor's line and asks for its blame.
   const blame = {
     source: {
       lineBlame: () => new Promise<never>(() => {}),
-      fileBlame: () => Promise.reject(new Error("gb reads one line")),
+      fileBlame: () => Promise.reject(new Error("gB reads one line")),
     },
     splitRows: () => null,
   } as unknown as AppKeyContext["blame"]
@@ -78,16 +77,16 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
       if (name in target) return target[name as keyof AppKeyContext]
       // The handler copies some of ctx into its own contexts when it is built; only a call counts.
       return () => {
-        throw new Error(`the gB path called ctx.${String(name)}`)
+        throw new Error(`the key path called ctx.${String(name)}`)
       }
     },
   }) as AppKeyContext
   mounted.setup.renderer.keyInput.on("keypress", failOnKeymapErrors(createAppKeys(mounted.setup.renderer, ctx)))
 }
 
-test("gB dispatches open-in-board, whichever case the terminal reports the shifted b in", async () => {
+test("gB in a PR's diff opens the blame peek, whichever case the terminal reports the shifted b in, and never riff board", async () => {
   app = await mountApp(DIFF, { width: 100, height: 30 })
-  app.show()
+  app.show({ appMode: "pr", prInfo: prInfo("") })
   const dispatched: string[] = []
   const hello = app.ctx.getLineMapping().allLines.findIndex((line) => line.content === '  return "hello"')
   keysOn(app, (id) => { dispatched.push(id) }, hello)
@@ -102,66 +101,36 @@ test("gB dispatches open-in-board, whichever case the terminal reports the shift
       ctrl: false, meta: false, option: false, number: false, eventType: "press", source: "raw",
     }),
   )
-  expect(dispatched).toEqual(["open-in-board"])
-
-  await mockInput.typeText("gB")
-  expect(dispatched).toEqual(["open-in-board", "open-in-board"])
-
-  // Plain gb is not gB: it opens the blame peek and dispatches nothing.
-  await mockInput.typeText("gb")
-  expect(dispatched).toEqual(["open-in-board", "open-in-board"])
   expect(app.blamePeek.open()).toBe(true)
   expect(await app.frame()).toContain("Reading blame…")
+
+  await mockInput.typeText("gB")
+  expect(app.blamePeek.open()).toBe(false)
+  await mockInput.typeText("gB")
+  expect(app.blamePeek.open()).toBe(true)
+  expect(dispatched).toEqual([])
 })
 
-test("gB outside a PR leaves the browser alone and says riff board is for PRs", async () => {
-  app = await mountApp(DIFF, { width: 100, height: 30 })
-  app.show()
-  const opened: string[] = []
-  const mounted = app
-  keysOn(app, (id) => {
-    if (id !== "open-in-board") throw new Error(`unexpected action ${id}`)
-    openPrInBoard({
-      getState: mounted.ctx.getState,
-      setState: mounted.ctx.setState,
-      // The toast clears two seconds on, long after this app is gone; drawing it then would land in another test.
-      render: () => { if (!mounted.setup.renderer.isDestroyed) mounted.render() },
-      toast: mounted.toast,
-      openUrl: (url) => { opened.push(url); return true },
-      boardUrl: "http://localhost:4477",
-      location: () => {
-        throw new Error("asked where the reader is with no PR to open")
-      },
-    })
-  })
-
-  await app.setup.mockInput.typeText("gB")
-  expect(await app.frame()).toContain("riff board opens GitHub PRs only")
-  expect(opened).toEqual([])
-})
-
-test("gB in the feed dispatches the same open-in-board as everywhere else", async () => {
+test("gB in the feed dispatches nothing", async () => {
   app = await mountApp(DIFF, { width: 100, height: 30 })
   app.show({ appMode: "pr", prInfo: prInfo(""), viewMode: "feed" })
   const dispatched: string[] = []
   keysOn(app, (id) => { dispatched.push(id) })
 
   await app.setup.mockInput.typeText("gB")
-  expect(dispatched).toEqual(["open-in-board"])
+  expect(dispatched).toEqual([])
   await app.frame()
 })
 
-test("gB in the overview dispatches open-in-board, whichever case shift+b arrives in, and plain gb does nothing", async () => {
+test("gB and gb in the overview dispatch nothing, whichever case shift+b arrives in", async () => {
   const keys = await prInfoPanelKeys(overviewState())
 
   // The parser always lowercases a shifted letter's name, so the uppercase report goes in by hand.
   keys.press("g")
   keys.press("B", "B")
-  expect(keys.calls).toEqual(["action open-in-board"])
   keys.press("g")
   keys.press("B")
-  expect(keys.calls).toEqual(["action open-in-board", "action open-in-board"])
   keys.press("g")
   keys.press("b")
-  expect(keys.calls).toEqual(["action open-in-board", "action open-in-board"])
+  expect(keys.calls).toEqual([])
 })

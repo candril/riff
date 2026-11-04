@@ -35,7 +35,7 @@ async function mounted() {
 }
 
 /**
- * What gB opens, worked out the way app.ts does it: the permalink resolver
+ * What open-in-board opens, worked out the way app.ts does it: the permalink resolver
  * over the app's own mapping and comment scope, so scopeAnchors decides the
  * line.
  */
@@ -72,17 +72,17 @@ function cursorOn(mounted: NonNullable<typeof app>, rawLine: string) {
   return { ...createCursorState(), line }
 }
 
-test("gB on an added line opens the board at its new-side line", async () => {
+test("open-in-board on an added line opens the board at its new-side line", async () => {
   const app = await mounted()
   expect(openedUrl(app, cursorOn(app, '+  return "hello"'))).toEqual([`${BASE}?file=src%2Fgreet.ts&line=2`])
 })
 
-test("gB on a removed line opens the board at its old-side line", async () => {
+test("open-in-board on a removed line opens the board at its old-side line", async () => {
   const app = await mounted()
   expect(openedUrl(app, cursorOn(app, '-  return "hi"'))).toEqual([`${BASE}?file=src%2Fgreet.ts&line=2&side=old`])
 })
 
-test("gB on a file in the tree opens the board at the file only", async () => {
+test("open-in-board on a file in the tree opens the board at the file only", async () => {
   const app = await mounted()
   const s = app.ctx.getState()
   const index = treeRowsOf(s).findIndex(
@@ -93,7 +93,7 @@ test("gB on a file in the tree opens the board at the file only", async () => {
   expect(openedUrl(app)).toEqual([`${BASE}?file=src%2Fgreet.ts`])
 })
 
-test("gB from the overview or the feed opens the bare PR path", async () => {
+test("open-in-board from the overview or the feed opens the bare PR path", async () => {
   const app = await mounted()
   const onAdded = cursorOn(app, '+  return "hello"')
   app.show({ viewMode: "state" })
@@ -102,7 +102,7 @@ test("gB from the overview or the feed opens the bare PR path", async () => {
   expect(openedUrl(app, onAdded)).toEqual([BASE])
 })
 
-test("gB on a selection opens the board at its first line", async () => {
+test("open-in-board on a selection opens the board at its first line", async () => {
   const app = await mounted()
   const start = cursorOn(app, " export function greet() {").line
   const end = cursorOn(app, '+  return "hello"').line
@@ -110,7 +110,7 @@ test("gB on a selection opens the board at its first line", async () => {
   expect(openedUrl(app, selection)).toEqual([`${BASE}?file=src%2Fgreet.ts&line=1`])
 })
 
-test("gB on the file header, which has no line, opens the board at the file", async () => {
+test("open-in-board on the file header, which has no line, opens the board at the file", async () => {
   const app = await mounted()
   const header = app.ctx.getLineMapping().allLines.findIndex((l) => l.type === "file-header")
   expect(openedUrl(app, { ...createCursorState(), line: header })).toEqual([`${BASE}?file=src%2Fgreet.ts`])

@@ -89,13 +89,6 @@ export function createPanelChords(deps: act.PRInfoPanelDeps): PanelChords {
       case "p":
         if (!key.shift) act.focusPreviews(deps)
         return
-      // Terminals differ in whether shift+b reports its name as `B` or `b`.
-      case "B":
-        act.runAction(deps, "open-in-board")
-        return
-      case "b":
-        if (key.shift) act.runAction(deps, "open-in-board")
-        return
       case "x":
       case "X":
         // So the picker's prompt field, focused in this same keypress, does

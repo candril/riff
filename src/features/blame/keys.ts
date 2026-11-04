@@ -10,7 +10,7 @@ import { blameLinkOf } from "./link"
 import type { BlameOutcome, BlamePeekState } from "./peek-state"
 import { blameTargetOf } from "./target"
 
-/** What `gb` and its peek reach outside riff's state; every spawn is injected, so tests stub them all. */
+/** What `gB` and its peek reach outside riff's state; every spawn is injected, so tests stub them all. */
 export interface BlameDeps {
   source: BlameSource
   openUrl(url: string): void
@@ -92,7 +92,7 @@ export function createBlameKeys(ctx: BlameKeysContext) {
   }
 
   return {
-    /** `gb`: opens the peek on the cursor's line, or closes it, as `gl` toggles its own. */
+    /** `gB`: opens the peek on the cursor's line, or closes it, as `gl` toggles its own. */
     toggle(): void {
       if (ctx.peek.peek()) close()
       else open()

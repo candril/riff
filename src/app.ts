@@ -641,7 +641,7 @@ export async function createApp(options: AppOptions = {}) {
     copy: copyToClipboard,
     repoRef: async () =>
       state.appMode === "pr" && state.prInfo ? { owner: state.prInfo.owner, repo: state.prInfo.repo } : getCurrentRepoRef(),
-    // `split` is built below; gb only ever runs once the app is. A jump may have
+    // `split` is built below; gB only ever runs once the app is. A jump may have
     // landed on the other half of a row, and the pane follows it, as for a comment.
     splitRows: () => {
       split.syncPane()

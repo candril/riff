@@ -154,6 +154,8 @@ const HELP_TEXT = `
     ]r / [r                   Next/previous comment thread
     ]R / [R                   Same, skipping resolved threads
     gC                        Find a comment (fuzzy, whole review)
+    gB                        Who last changed this line
+    gb                        Blame column for this file
 
     \x1b[1mComments panel\x1b[0m
     x                         Toggle the thread resolved
@@ -181,7 +183,6 @@ const HELP_TEXT = `
     gs                        Sync edits/replies/resolutions to GitHub
     gi                        PR overview panel
     go / gy / gY              Open PR / copy its URL / copy permalink
-    gB                        Open PR in riff board
     gP                        Create PR (local) or edit PR title & body
     gc                        Checkout the PR branch, open the file in $EDITOR
 

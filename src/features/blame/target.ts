@@ -34,7 +34,7 @@ export function blameTargetOf({ mapping, vim, rows, files }: BlameTargetInput): 
   return { path: side === "base" ? baseNameOf(line.filename, files) : line.filename, side, line: number }
 }
 
-/** A rename's base holds the file under its old name, as `zB` reads it. */
+/** A rename's base holds the file under its old name, as `gb` reads it. */
 function baseNameOf(filename: string, files: BlameTargetInput["files"]): string {
   const file = files.find((candidate) => candidate.filename === filename)
   return file?.oldFilename ?? filename

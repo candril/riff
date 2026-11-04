@@ -410,7 +410,9 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Create/Edit PR | gP | Create PR (local) or edit PR (PR mode) |
 | Open in Browser | go | Open PR in browser |
 | Toggle Rendered Markdown | gR | The markdown file at the cursor rendered in place of its diff (spec 111); gR again brings the diff back |
-| Blame | gb | Who last changed the cursor's line; from its peek, go opens the commit or PR and y copies the sha |
+| Blame | gB | Who last changed the cursor's line; from its peek, go opens the commit or PR and y copies the sha |
+| Blame Column | gb | Who last changed each line of the file under the cursor, as a column beside the line numbers |
+| Open in riff board | — | Open the PR in riff board (palette only) |
 | PR Info | gi | Show PR details |
 | Previews | gp | Where the PR is deployed: open one, deploy one on demand, follow a build (spec 113) |
 | PR state / feed / diff | i / a / d | The three views; the same key again goes back |

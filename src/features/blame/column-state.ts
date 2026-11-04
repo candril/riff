@@ -9,7 +9,7 @@ export type BlameColumnOutcome = { head: FileBlame | null; base: FileBlame | nul
 export type BlameColumnsState = ReturnType<typeof createBlameColumnsState>
 
 /**
- * The `zB` blame columns' state. The feature owns it rather than AppState,
+ * The `gb` blame columns' state. The feature owns it rather than AppState,
  * which sheds one slice per feature this way (spec 100, M6; ADR-003). Every
  * change sets a new Map: the diff views' memos and the unified layout compare
  * the map by identity.

@@ -236,13 +236,13 @@ describe("the overview's g chord", () => {
     expect(keys.calls).toEqual(["help", "help"])
   })
 
-  test("gr, go, gy and gB run the app's actions, and plain gb does nothing", async () => {
+  test("gr, go and gy run the app's actions, and gb and gB do nothing", async () => {
     const keys = await prInfoPanelKeys(overviewState())
     for (const key of ["r", "o", "y", "B", "b"]) {
       keys.press("g")
       keys.press(key)
     }
-    expect(keys.calls).toEqual(["action refresh", "action open-in-browser", "action copy-pr-url", "action open-in-board"])
+    expect(keys.calls).toEqual(["action refresh", "action open-in-browser", "action copy-pr-url"])
   })
 
   test("gx opens the view's links and gX copies one, prevented for the picker", async () => {

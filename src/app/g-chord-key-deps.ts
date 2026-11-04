@@ -5,6 +5,8 @@ import type { GChordKeyDeps } from "./g-chord-keys"
 import type { BlameKeys } from "../features/blame/keys"
 import { followLinkContext } from "./follow-link-deps"
 import { appKeyTakes } from "./app-keys"
+import { blameKeysContext } from "./blame-key-deps"
+import { createBlameColumnKeys } from "../features/blame/column-keys"
 
 /**
  * What the `g` chords need of the app. `blame` is the object createAppKeys
@@ -26,6 +28,7 @@ export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
     refreshContext: ctx.refreshContext,
     followLinkContext: followLinkContext(ctx),
     blame,
+    blameColumn: createBlameColumnKeys(blameKeysContext(ctx)),
     linePeek: ctx.linePeek,
     blamePeek: ctx.blamePeek,
     vimHandler: ctx.vimHandler,

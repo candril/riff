@@ -16,7 +16,7 @@ export interface BlameColumnKeysContext {
   toast(message: string, type: "success" | "error" | "info"): void
 }
 
-/** The file `zB` acts on: the one shown, or in all files the one the cursor is in, its header included. */
+/** The file `gb` acts on: the one shown, or in all files the one the cursor is in, its header included. */
 function fileUnderCursor(ctx: BlameColumnKeysContext): AppState["files"][number] | undefined {
   const state = ctx.getState()
   if (state.selectedFileIndex !== null) return state.files[state.selectedFileIndex]
@@ -58,7 +58,7 @@ export function createBlameColumnKeys(ctx: BlameColumnKeysContext) {
   }
 
   return {
-    /** `zB`: the blame column for the file under the cursor, on or off (spec 103). */
+    /** `gb`: the blame column for the file under the cursor, on or off (spec 103). */
     toggle(): void {
       const file = fileUnderCursor(ctx)
       if (!file) {

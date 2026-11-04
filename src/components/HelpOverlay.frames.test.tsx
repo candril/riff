@@ -64,11 +64,14 @@ test("the composer's keys are drawn with what they do, above the footer", async 
   expect(footer).toBeGreaterThan(Math.max(publish, newline, pick))
 })
 
-test("gB is drawn with riff board, above the footer", async () => {
+test("gB is drawn with the blame peek and gb with the blame column, above the footer, and riff board has no key", async () => {
   const rows = await frame()
-  const board = rows.findIndex((line) => /gB\s+Open PR in riff board/.test(line))
-  expect(board).toBeGreaterThan(-1)
-  expect(rows.findIndex((line) => line.includes("Press g? or Esc to close"))).toBeGreaterThan(board)
+  const peek = rows.findIndex((line) => /gB\s+Who last changed this line/.test(line))
+  const column = rows.findIndex((line) => /gb\s+Blame column for this file/.test(line))
+  expect(peek).toBeGreaterThan(-1)
+  expect(column).toBeGreaterThan(-1)
+  expect(rows.findIndex((line) => line.includes("Press g? or Esc to close"))).toBeGreaterThan(Math.max(peek, column))
+  expect(rows.join("\n")).not.toContain("riff board")
 })
 
 test("where every key fits, the footer offers no scrolling and nothing is marked as more", async () => {

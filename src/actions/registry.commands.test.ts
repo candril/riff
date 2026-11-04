@@ -54,7 +54,6 @@ const SHOWN: Record<string, string> = {
   "delete-comment": "d",
   "create-pr": "gP",
   "edit-pr": "gP",
-  "open-in-board": "gB",
   "pr-info": "gi",
   "previews": "gp",
   "copy-pr-url": "gy",

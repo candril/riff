@@ -3,7 +3,9 @@ import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { chatReaches, type ChatReachInputs } from "../features/chat/keys"
 
-const BLAME_PEEK_CHORDS = new Set(["go", "gb"])
+// `gb` is refused: under the modal peek it would toggle a column the peek
+// covers.
+const BLAME_PEEK_CHORDS = new Set(["go", "gB!", "gb!"])
 
 /**
  * Whether a completed chord may act while a peek is up. The peeks let `g`
@@ -32,7 +34,7 @@ export interface PeekKeyContext extends ChatReachInputs {
 
 /**
  * Whether an open peek leaves `key` to the handlers behind it. A bare `g`
- * goes on to the keymap's g sequences, or `gb`, `go` and `gl` could not
+ * goes on to the keymap's g sequences, or `gB`, `go` and `gl` could not
  * complete, and so does every key while a chord is pending. A pending text
  * object (`vi` waiting for its object) is answered by the text object's
  * capture registered behind both peeks, which stand aside for it, so `vi`

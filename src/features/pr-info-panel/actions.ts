@@ -195,7 +195,7 @@ export function toggleHelp(deps: Deps): void {
 }
 
 /** The app's own action behind a `g` chord, which the panel's standalone `r`/`o`/`y` would otherwise shadow. */
-export function runAction(deps: Deps, id: "refresh" | "open-in-browser" | "copy-pr-url" | "open-in-board"): void {
+export function runAction(deps: Deps, id: "refresh" | "open-in-browser" | "copy-pr-url"): void {
   deps.executeAction?.(id)
 }
 

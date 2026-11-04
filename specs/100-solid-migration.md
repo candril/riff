@@ -137,7 +137,7 @@ chain asked it. Each holds every key while it is up. The prompts prevent
 only Esc and Enter, and in the tree filter a backspace on an empty query,
 and leave every other key unprevented for their fields to type; the peeks
 prevent nothing, as the chain never did. The peeks leave the chain a bare
-`g`, so `go`, `gb` and `gl` complete, every key while a chord is
+`g`, so `go`, `gB` and `gl` complete, every key while a chord is
 pending, and Ctrl-r, and Ctrl-l from the thread panel, wherever the chat
 takes them. A text object pending in the diff is a keymap capture
 registered behind the peeks (`src/app/text-object-keys.ts`): it hands
@@ -373,11 +373,11 @@ queue. At the user's request the migration also added:
   ([039](./039-inline-comment-overlay.md))
 - the version in the header and the help overlay
   ([105](./105-version-in-chrome.md))
-- `gB`, opening the PR in riff board ([104](./104-riff-board.md))
+- opening the PR in riff board ([104](./104-riff-board.md))
 - page motions in the file tree and the thread panel, and the open-only
   and unviewed-only filters ([107](./107-panel-filters.md))
 - the agent chat ([102](./102-agent-chat.md), in progress)
-- blame, the `gb` peek and the `zB` column ([103](./103-blame.md))
+- blame, the `gB` peek and the `gb` column ([103](./103-blame.md))
 - the merge status in the PR info panel ([108](./108-merge-status.md), in progress)
 
 ## Out of Scope

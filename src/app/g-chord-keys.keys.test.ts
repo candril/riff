@@ -30,6 +30,7 @@ const DIFF = ["a.ts", "b.ts"].map(fileDiff).join("")
 const SHIFT_G = "\x1b[71;2u"
 const SHIFTED_LOWER_G = "\x1b[103;2u"
 const SHIFT_C = "\x1b[67;2u"
+const SHIFT_B = "\x1b[66;2u"
 const CTRL_R = "\x12"
 const CTRL_P = "\x10"
 const CTRL_G = "\x07"
@@ -199,7 +200,7 @@ describe("under the line peek", () => {
   })
 })
 
-test("under the blame peek gb and go act and every other g chord is swallowed", async () => {
+test("under the blame peek gB and go act and every other g chord, gb included, is swallowed", async () => {
   const opened: string[] = []
   const blame: BlameDeps = {
     source: {
@@ -220,15 +221,16 @@ test("under the blame peek gb and go act and every other g chord is swallowed", 
   const { mounted, type, keys, lineOf, line, linePeek } = await gApp({ blame })
   const at = lineOf('  return "hello"', "b.ts")
   keys.jumpTo(at)
-  type("g", "b")
+  type("g", SHIFT_B)
   expect(await until(() => mounted.blamePeek.peek()?.status === "ready")).toBe(true)
-  type("g", "g", "g", "l")
+  type("g", "g", "g", "l", "g", "b")
   expect(line()).toBe(at)
   expect(linePeek.open()).toBe(false)
+  expect(mounted.blameColumns.columns().size).toBe(0)
   type("g", "o")
   expect(await until(() => opened.length > 0)).toBe(true)
   expect(opened).toEqual(["https://github.com/o/r/pull/12"])
-  type("g", "b")
+  type("g", SHIFT_B)
   expect(mounted.blamePeek.open()).toBe(false)
 })
 

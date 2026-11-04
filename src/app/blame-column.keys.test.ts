@@ -39,7 +39,7 @@ afterEach(async () => {
   await done?.dispose()
 })
 
-/** Every fileBlame zB asks, recorded, with each answer held until the test settles it. */
+/** Every fileBlame gb asks, recorded, with each answer held until the test settles it. */
 function stubBlame() {
   const asked: [string, BlameSide][] = []
   const pending: { side: BlameSide; resolve: (r: LoadedFileBlame | null) => void; reject: (e: Error) => void }[] = []
@@ -52,7 +52,7 @@ function stubBlame() {
       lineBlame: () => Promise.reject(new Error("the column reads whole files")),
     },
     openUrl: () => {
-      throw new Error("zB opens nothing")
+      throw new Error("gb opens nothing")
     },
     copy: async () => ({ ok: true }),
     repoRef: async () => null,
@@ -66,10 +66,7 @@ function stubBlame() {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 const press = (...keys: string[]) => keys.forEach((key) => app!.setup.mockInput.pressKey(key))
-const zB = () => {
-  press("z")
-  app!.setup.mockInput.pressKey("b", { shift: true })
-}
+const gb = () => press("g", "b")
 const lineOf = (content: string) => app!.ctx.getLineMapping().allLines.findIndex((line) => line.content === content)
 const cursorX = () => app!.setup.renderer.getCursorState().x
 
@@ -91,11 +88,11 @@ async function mount() {
   return { ...blame, ...keys }
 }
 
-describe("zB", () => {
+describe("gb", () => {
   test("turns the file's column on, shows … while blame loads, names the commit once it lands, and turns it off", async () => {
     const { asked, answer, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    zB()
+    gb()
     expect(asked).toEqual([
       ["src/greet.ts", "head"],
       ["src/greet.ts", "base"],
@@ -109,7 +106,7 @@ describe("zB", () => {
     expect(frame).toContain("a1b2c3d4 Ada Love")
     expect(frame).not.toContain("…")
 
-    zB()
+    gb()
     expect(app!.blameColumns.columns().size).toBe(0)
     frame = await app!.frame()
     expect(frame).not.toContain("a1b2c3d4")
@@ -118,7 +115,7 @@ describe("zB", () => {
   test("a reload while blame loads turns the column off, and the late answer leaves it off", async () => {
     const { answer, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    zB()
+    gb()
     expect(await app!.frame()).toContain("…")
 
     const mounted = app!
@@ -133,24 +130,28 @@ describe("zB", () => {
     expect(frame).not.toContain("a1b2c3d4")
   })
 
-  test("takes a shifted b the terminal names B", async () => {
-    const { jumpTo } = await mount()
-    jumpTo(lineOf('  return "hello"'))
+  test("zB, the shifted b named B or b, leaves the column off and the cursor put", async () => {
+    const { asked, jumpTo, vimState } = await mount()
+    const at = lineOf('  return "hello"')
+    jumpTo(at)
     const shiftB = new KeyEvent(parseKeypress("\x1b[66;2u", { useKittyKeyboard: true })!)
     expect(shiftB.name).toBe("B")
     press("z")
     app!.setup.renderer.keyInput.emit("keypress", shiftB)
-    expect(app!.blameColumns.columns().get("src/greet.ts")).toEqual({ status: "loading" })
+    press("z")
+    app!.setup.mockInput.pressKey("b", { shift: true })
+    expect(asked).toEqual([])
+    expect(app!.blameColumns.columns().size).toBe(0)
+    expect(vimState().line).toBe(at)
   })
 
   // The global layer binds b to the tree with any modifier, and must
-  // decline the shifted b of zB, as the global keys decline every key
-  // under a chord. zB asks only for the diff view, not for the diff's
-  // focus.
+  // decline the b of gb, as the global keys decline every key under a
+  // chord. gb asks only for the diff view, not for the diff's focus.
   test("with the tree focused toggles the column and leaves the tree alone", async () => {
     await mount()
     app!.show({ focusedPanel: "tree", showFilePanel: true, treeHighlightIndex: 0 })
-    zB()
+    gb()
     const state = app!.ctx.getState()
     expect(app!.blameColumns.columns().get("src/greet.ts")).toEqual({ status: "loading" })
     expect([state.showFilePanel, state.focusedPanel]).toEqual([true, "tree"])
@@ -159,9 +160,9 @@ describe("zB", () => {
   test("outside the diff view leaves the column alone", async () => {
     const { asked, chordPending } = await mount()
     app!.show({ viewMode: "feed" })
-    press("z")
+    press("g")
     expect(chordPending()).toBe(true)
-    app!.setup.mockInput.pressKey("b", { shift: true })
+    press("b")
     expect(chordPending()).toBe(false)
     expect(asked).toEqual([])
     expect(app!.blameColumns.columns().size).toBe(0)
@@ -170,7 +171,7 @@ describe("zB", () => {
   test("a failed read toasts why and leaves no column", async () => {
     const { fail, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    zB()
+    gb()
     fail("jj: no such revision")
     await flush()
     expect(app!.blameColumns.columns().size).toBe(0)
@@ -181,7 +182,7 @@ describe("zB", () => {
   test("no blame on either side says so and leaves no column", async () => {
     const { answer, jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
-    zB()
+    gb()
     answer(null, null)
     await flush()
     expect(app!.blameColumns.columns().size).toBe(0)
@@ -194,7 +195,7 @@ describe("zB", () => {
     app!.render()
     await app!.frame()
     const before = cursorX()
-    zB()
+    gb()
     answer(loaded(41), loaded(41))
     await flush()
     await app!.frame()
@@ -211,7 +212,7 @@ describe("zB", () => {
   test("sideways scrolling still slides a long line under the narrower code window", async () => {
     const { answer, jumpTo } = await mount()
     jumpTo(lineOf(WIDE))
-    zB()
+    gb()
     answer(loaded(41), loaded(41))
     await flush()
     const row = (frame: string) => frame.split("\n").find((line) => line.includes('const wide') || line.includes("xxxxxxxx"))!

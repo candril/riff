@@ -138,7 +138,7 @@ export interface AppKeyContext {
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
   threadMotionContext: threadMotion.ThreadMotionContext
   marksContext: marks.MarksContext
-  /** `gb`'s blame source and the browser and clipboard its peek hands off to (spec 103). */
+  /** `gB`'s blame source and the browser and clipboard its peek hands off to (spec 103). */
   blame: BlameDeps
   /** The chat column's conversation, whether the column is open, and its input (spec 102). */
   chat: { state: ChatState; column: ChatColumnState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
@@ -170,7 +170,7 @@ export interface AppKeyContext {
   linePeek: LinePeekState
   /** The blame peek's state, the same instance the frame pass reads. */
   blamePeek: BlamePeekState
-  /** The zB blame columns, the same instance the diff passes read. */
+  /** The `gb` blame columns, the same instance the diff passes read. */
   blameColumns: BlameColumnsState
   /** The @mention pool, the same instance the frame pass reads. */
   mentions: MentionsState

@@ -122,7 +122,7 @@ interval = 300                                       # seconds between comment c
 onFocus = true                                       # only while the terminal has focus
 
 [board]
-url = "http://localhost:4477"                        # where riff board listens (gB)
+url = "http://localhost:4477"                        # where riff board listens (Ctrl+p: Open in riff board)
 ```
 
 The [configuration reference](https://candril.github.io/riff/reference/configuration/) has the rest.
