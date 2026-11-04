@@ -1,5 +1,6 @@
 import { For, Show, type JSX } from "solid-js"
 import { theme } from "../theme"
+import { MatchedSpans } from "./MatchedSpans"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { CommentsPickerModel, CommentsPickerRow } from "./comments-picker-model"
 
@@ -10,17 +11,24 @@ function CommentRow(props: { row: CommentsPickerRow }) {
         <text fg={props.row.glyphFg}>{props.row.glyph}</text>
       </box>
       <box flexDirection="row" flexShrink={0}>
-        <text fg={props.row.locationFg}>{` ${props.row.location} `}</text>
+        <text fg={props.row.locationFg}>
+          <span>{" "}</span>
+          <MatchedSpans spans={props.row.locationSpans} fg={props.row.locationFg} />
+          <span>{" "}</span>
+        </text>
       </box>
       <box flexDirection="row" flexGrow={1}>
-        <text fg={props.row.previewFg}>{props.row.preview}</text>
+        <text fg={props.row.previewFg}>
+          <MatchedSpans spans={props.row.previewSpans} fg={props.row.previewFg} />
+        </text>
       </box>
       <Show when={props.row.author}>
-        {(author: () => string) => (
-          <box flexDirection="row">
-            <text fg={theme.overlay0}>{` ${author()}`}</text>
-          </box>
-        )}
+        <box flexDirection="row">
+          <text fg={theme.overlay0}>
+            <span>{" "}</span>
+            <MatchedSpans spans={props.row.authorSpans} fg={theme.overlay0} />
+          </text>
+        </box>
       </Show>
     </box>
   )

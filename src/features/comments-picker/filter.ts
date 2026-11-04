@@ -7,7 +7,7 @@
 
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
-import { fuzzyFilter } from "../../utils/fuzzy"
+import { fuzzyFilterMatches, fuzzyMatchPositions } from "../../utils/fuzzy"
 import { extractCommentImages } from "../../utils/comment-images"
 
 export interface CommentsPickerEntry {
@@ -18,6 +18,8 @@ export interface CommentsPickerEntry {
   isRoot: boolean
   /** Resolved status of the *thread* this comment belongs to. */
   threadResolved: boolean
+  /** Which of the comment's texts the query matched, and where in it. */
+  matched?: { field: "body" | "preview" | "filename" | "author"; positions: number[] }
 }
 
 /**
@@ -84,12 +86,33 @@ export function filterEntries(
   query: string
 ): CommentsPickerEntry[] {
   if (!query) return entries
-  return fuzzyFilter(query, entries, (e) => [
+  return fuzzyFilterMatches(query, entries, (e) => [
     e.comment.body,
     e.comment.filename,
     e.comment.author ?? "",
-  ])
+  ]).map(({ item, field, positions }) => ({ ...item, matched: drawnMatch(item, query, COMMENT_FIELDS[field]!, positions) }))
 }
+
+/**
+ * The row draws only the preview of the body. A comment ranked on its body
+ * where the preview does not hold the whole match shows the preview's own
+ * match instead, if the preview matches the query by itself.
+ */
+function drawnMatch(
+  entry: CommentsPickerEntry,
+  query: string,
+  field: (typeof COMMENT_FIELDS)[number],
+  positions: number[]
+): NonNullable<CommentsPickerEntry["matched"]> {
+  if (field !== "body") return { field, positions }
+  const at = entry.comment.body.indexOf(entry.preview)
+  const inPreview = at !== -1 && positions.every((p) => p >= at && p < at + entry.preview.length)
+  if (inPreview) return { field, positions }
+  const own = fuzzyMatchPositions(query, entry.preview)?.positions
+  return own ? { field: "preview", positions: own } : { field, positions }
+}
+
+const COMMENT_FIELDS = ["body", "filename", "author"] as const
 
 /** Convenience: build + filter in one call from `state`. */
 export function getFilteredEntries(state: AppState, query: string): CommentsPickerEntry[] {

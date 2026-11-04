@@ -208,8 +208,8 @@ describe("since your last visit", () => {
     })
     expect(rowNamed(rows, "src").name.text).toBe("▼ src ● ▴")
     expect(rowNamed(rows, "src/app").name.text).toBe("  ▼ app ● ▴")
-    expect(rowNamed(rows, "src/app/main.ts").name).toEqual({ text: "      main.ts ●", fg: colors.commentLocal })
-    expect(rowNamed(rows, "src/app/old.ts").name).toEqual({ text: "      old.ts ▴", fg: colors.fileDeleted })
+    expect(rowNamed(rows, "src/app/main.ts").name).toMatchObject({ text: "      main.ts ●", fg: colors.commentLocal })
+    expect(rowNamed(rows, "src/app/old.ts").name).toMatchObject({ text: "      old.ts ▴", fg: colors.fileDeleted })
     expect(rowNamed(rows, "src").name.fg).toBe(theme.subtext0)
     expect(rowNamed(rows, "docs").name.text).toBe("▼ docs")
   })
@@ -308,5 +308,45 @@ describe("unviewed only", () => {
     expect(empty).toBe("All files viewed · H shows them")
     expect(header.note).toBe("unviewed only · 5 hidden")
     expect(model({ fileStatuses: all }).empty).toBeNull()
+  })
+})
+
+describe("the / filter's highlighted matches (spec 007)", () => {
+  const m = (text: string) => ({ text, matched: true })
+  const u = (text: string) => ({ text, matched: false })
+  const spansOf = (treeFilter: string, key: string, width = 35) => rowNamed(model({ treeFilter, width }).rows, key).name.spans
+
+  test("a file's row picks out the matched characters of its own name", () => {
+    expect(spansOf("man", "docs/manual.md")).toEqual([u("    "), m("man"), u("ual.md")])
+    expect(spansOf("man", "src/app/main.ts")).toEqual([u("      "), m("ma"), u("i"), m("n"), u(".ts")])
+  })
+
+  test("the share of a match that fell on the directories above is not drawn, not even on the indent", () => {
+    expect(spansOf("appmain", "src/app/main.ts")).toEqual([u("      "), m("main"), u(".ts")])
+  })
+
+  test("a path match that hit the directories shows the name's own match, when the name matches by itself", () => {
+    // On the path, at is the a of app and the t of .ts; main.ts alone has its own a and t.
+    expect(spansOf("at", "src/app/main.ts")).toEqual([u("      m"), m("a"), u("in."), m("t"), u("s")])
+  })
+
+  test("a path match that hit the directories, with a name that does not match by itself, shows only its share on the name", () => {
+    expect(spansOf("sm", "src/app/main.ts")).toEqual([u("      "), m("m"), u("ain.ts")])
+  })
+
+  test("a directory's row picks out its own name, and one kept only for what is under it shows nothing", () => {
+    expect(spansOf("src", "src")).toEqual([u("▼ "), m("src")])
+    expect(spansOf("src", "src/app")).toEqual([u("  ▼ app")])
+    expect(spansOf("appmain", "src/app")).toEqual([u("  ▼ app")])
+    expect(spansOf("src", "src/app/main.ts")).toEqual([u("      main.ts")])
+  })
+
+  test("a name cut with … shows no match past the cut", () => {
+    expect(spansOf("main", "src/app/main.ts", 12)).toEqual([u("      "), m("main"), u("…")])
+    expect(spansOf("ts", "src/app/main.ts", 12)).toEqual([u("      main…")])
+  })
+
+  test("no filter draws every name plain", () => {
+    for (const row of model().rows) expect(row.name.spans).toEqual([u(row.name.text)])
   })
 })

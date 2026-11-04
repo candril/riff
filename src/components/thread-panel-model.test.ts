@@ -345,7 +345,7 @@ describe("the thread panel's pickers", () => {
       mentionPicker: { query: "bo", selectedIndex: 3, atOffset: 0 },
       mentionCandidates: ["alice", "bob"],
     }).picker
-    expect(picker).toEqual({ kind: "mention", picker: mentionRows(["@bob"], 0) })
+    expect(picker).toMatchObject({ kind: "mention", picker: mentionRows(["@bob"], 0) })
   })
 
   test("draw a mention row as its author is drawn, a local @you unprefixed", () => {
@@ -354,7 +354,7 @@ describe("the thread panel's pickers", () => {
       mentionPicker: { query: "", selectedIndex: 0, atOffset: 0 },
       mentionCandidates: ["@you", "alice"],
     }).picker
-    expect(picker).toEqual({ kind: "mention", picker: mentionRows(["@you", "@alice"], 0) })
+    expect(picker).toMatchObject({ kind: "mention", picker: mentionRows(["@you", "@alice"], 0) })
   })
 
   test("say why a mention finds nobody", () => {
@@ -394,5 +394,36 @@ describe("the thread panel's text", () => {
     expect(getStatusColor("local")).toBe(colors.commentLocal)
     expect(getStatusColor("pending")).toBe(colors.commentPending)
     expect(getStatusColor("synced")).toBe(colors.commentSynced)
+  })
+})
+
+describe("the @mention picker's highlighted matches (spec 007)", () => {
+  const rowsFor = (query: string, mentionCandidates: string[]) => {
+    const picker = model({ mode: "compose", mentionPicker: { query, selectedIndex: 0, atOffset: 0 }, mentionCandidates }).picker
+    return picker?.kind === "mention" && picker.picker.kind === "rows" ? picker.picker.rows : []
+  }
+
+  test("the login's matched characters land past the @ the row adds", () => {
+    expect(rowsFor("al", ["alice", "bob"])).toEqual([
+      {
+        text: "@alice",
+        spans: [
+          { text: "@", matched: false },
+          { text: "al", matched: true },
+          { text: "ice", matched: false },
+        ],
+      },
+    ])
+  })
+
+  test("a local @you, stored with its @, lands on the same characters", () => {
+    expect(rowsFor("you", ["@you", "alice"])[0]!.spans).toEqual([
+      { text: "@", matched: false },
+      { text: "you", matched: true },
+    ])
+  })
+
+  test("no query draws every login plain", () => {
+    expect(rowsFor("", ["alice"])[0]!.spans).toEqual([{ text: "@alice", matched: false }])
   })
 })

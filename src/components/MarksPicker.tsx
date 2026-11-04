@@ -1,4 +1,5 @@
 import { For, type JSX } from "solid-js"
+import { MatchedSpans } from "./MatchedSpans"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { MarksPickerModel, MarksPickerRow } from "./marks-picker-model"
 
@@ -6,13 +7,21 @@ function MarkRow(props: { row: MarksPickerRow }) {
   return (
     <box flexDirection="row" backgroundColor={rowBackground(props.row.selected)} paddingX={2} width="100%">
       <box flexDirection="row" width={2}>
-        <text fg={props.row.letterFg}>{props.row.letter}</text>
+        <text fg={props.row.letterFg}>
+          <MatchedSpans spans={props.row.letterSpans} fg={props.row.letterFg} />
+        </text>
       </box>
       <box flexDirection="row" flexShrink={0}>
-        <text fg={props.row.locationFg}>{` ${props.row.location} `}</text>
+        <text fg={props.row.locationFg}>
+          <span>{" "}</span>
+          <MatchedSpans spans={props.row.locationSpans} fg={props.row.locationFg} />
+          <span>{" "}</span>
+        </text>
       </box>
       <box flexDirection="row" flexGrow={1}>
-        <text fg={props.row.textFg}>{props.row.text}</text>
+        <text fg={props.row.textFg}>
+          <MatchedSpans spans={props.row.textSpans} fg={props.row.textFg} />
+        </text>
       </box>
     </box>
   )

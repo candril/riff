@@ -1,5 +1,6 @@
 import { theme } from "../theme"
 import { actionKeys, type ResolvedAction } from "../actions"
+import { matchSpans, type MatchSpan } from "./match-spans"
 import { PICKER_CHROME_ROWS, visibleRows } from "./picker-window"
 
 /**
@@ -16,10 +17,18 @@ export interface SubmenuRow {
   /** The viewer already acted on this row, e.g. reacted with this emoji,
    *  so choosing it again undoes rather than adds. */
   accented?: boolean
+  /** Where the query matched the label, or the trailing note. */
+  labelMatched?: number[]
+  trailingMatched?: number[]
 }
 
 export type ActionMenuMode =
-  | { kind: "actions"; actions: ResolvedAction[] }
+  | {
+      kind: "actions"
+      actions: ResolvedAction[]
+      /** Where the query matched each action's label, by action id. */
+      labelMatches?: ReadonlyMap<string, number[]>
+    }
   | { kind: "submenu"; title: string; hint?: string; rows: SubmenuRow[] }
 
 /** Category display order and labels, in that order. */
@@ -56,14 +65,24 @@ export function getVisualActionOrder(actions: readonly ResolvedAction[]): Resolv
 
 export type ActionMenuRow =
   | { kind: "category"; id: string; label: string }
-  | { kind: "action"; id: string; label: string; labelFg: string; shortcut: string | null; selected: boolean }
+  | {
+      kind: "action"
+      id: string
+      label: string
+      labelSpans: MatchSpan[]
+      labelFg: string
+      shortcut: string | null
+      selected: boolean
+    }
   | {
       kind: "submenu"
       id: string
       /** The icon, when there is one, already two spaces before the label. */
       label: string
+      labelSpans: MatchSpan[]
       labelFg: string
       trailing: string | null
+      trailingSpans: MatchSpan[]
       trailingFg: string
       accented: boolean
       selected: boolean
@@ -143,12 +162,15 @@ export function actionMenuModel(
       rows: mode.rows.slice(start, end).map((row, i) => {
         const selected = start + i === selectedIndex
         const accented = row.accented === true
+        const label = row.icon ? `${row.icon}  ${row.label}` : row.label
         return {
           kind: "submenu",
           id: row.id,
-          label: row.icon ? `${row.icon}  ${row.label}` : row.label,
+          label,
+          labelSpans: matchSpans(label, row.labelMatched, row.label.length - label.length),
           labelFg: selected || accented ? theme.text : theme.subtext1,
           trailing: row.trailing || null,
+          trailingSpans: matchSpans(row.trailing ?? "", row.trailingMatched),
           trailingFg: accented ? theme.green : theme.overlay0,
           accented,
           selected,
@@ -176,6 +198,7 @@ export function actionMenuModel(
         kind: "action",
         id: action.id,
         label: action.label,
+        labelSpans: matchSpans(action.label, mode.labelMatches?.get(action.id)),
         labelFg: selected ? theme.text : theme.subtext1,
         shortcut: actionKeys(action, commandKeys),
         selected,

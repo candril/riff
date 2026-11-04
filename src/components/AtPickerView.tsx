@@ -1,6 +1,8 @@
 import { For, Match, Show, Switch, type JSX } from "solid-js"
 import { theme } from "../theme"
 import type { AtPicker } from "./at-picker"
+import { matchSpans } from "./match-spans"
+import { MatchedSpans } from "./MatchedSpans"
 
 type AtPickerOf<K extends AtPicker["kind"]> = Extract<AtPicker, { kind: K }>
 
@@ -24,7 +26,9 @@ export function AtPickerView(props: { picker: AtPicker }) {
             <For each={picker().rows}>
               {(row, i) => (
                 <PickerRow selected={i() === picker().selected} accent={picker().accent}>
-                  <text fg={row.fg ?? theme.text}>{row.text}</text>
+                  <text fg={row.fg ?? theme.text}>
+                    <MatchedSpans spans={row.spans ?? matchSpans(row.text)} fg={row.fg ?? theme.text} />
+                  </text>
                   <Show when={row.detail}>
                     {(detail: () => string) => (
                       <>

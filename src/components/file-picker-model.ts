@@ -1,6 +1,7 @@
 import { theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
 import { getFileColor } from "../utils/file-colors"
+import { matchSpans, type MatchSpan } from "./match-spans"
 import { pickerModel, type PickerModel, type PickerRow } from "./picker-window"
 
 export interface FilteredFile {
@@ -8,11 +9,15 @@ export interface FilteredFile {
   index: number  // Original index in files array
   viewed?: boolean  // Whether file has been marked as viewed
   commentCount?: number  // Number of comments on this file
+  /** Where the query matched the filename. */
+  matched?: number[]
 }
 
 export interface FilePickerRow extends PickerRow {
   viewed: boolean
   name: string
+  /** The name with what the query matched picked out. */
+  nameSpans: MatchSpan[]
   nameFg: string
   /** How many comments the file has, or null for none. */
   comments: string | null
@@ -30,6 +35,7 @@ export function filePickerModel(files: readonly FilteredFile[], selectedIndex: n
       selected,
       viewed,
       name: file.filename,
+      nameSpans: matchSpans(file.filename, item.matched),
       nameFg: viewed && !selected ? theme.overlay0 : baseFg,
       comments: commentCount && commentCount > 0 ? String(commentCount) : null,
       stats: `+${file.additions} -${file.deletions}`,

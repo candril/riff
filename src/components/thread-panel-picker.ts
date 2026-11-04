@@ -1,7 +1,7 @@
 import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { theme } from "../theme"
 import { filterEmoji } from "../utils/emoji"
-import { clampSelection, filterAtCandidates, type AtPicker } from "./at-picker"
+import { atRowSpans, clampSelection, filterAtCandidates, filterAtMatches, type AtPicker } from "./at-picker"
 import { displayAuthor } from "./display-author"
 import { pickerWindow } from "./picker-window"
 
@@ -57,7 +57,7 @@ function mentionAtPicker(
   input: { mentionCandidates: readonly string[]; mentionSearchQuery: string | null },
   mentionPicker: MentionPickerState
 ): AtPicker {
-  const filtered = getFilteredMentionCandidates(input.mentionCandidates, mentionPicker.query)
+  const filtered = filterAtMatches(input.mentionCandidates, mentionPicker.query, (c) => c)
   if (filtered.length === 0) {
     return { kind: "empty", text: emptyPickerMessage(mentionPicker.query, input.mentionSearchQuery) }
   }
@@ -65,7 +65,10 @@ function mentionAtPicker(
     kind: "rows",
     title: "@mention",
     accent: theme.blue,
-    rows: filtered.map((login) => ({ text: displayAuthor(login) })),
+    rows: filtered.map(({ item: login, positions }) => {
+      const text = displayAuthor(login)
+      return { text, spans: atRowSpans(text, login, positions) }
+    }),
     selected: clampSelection(mentionPicker.selectedIndex, filtered.length),
   }
 }

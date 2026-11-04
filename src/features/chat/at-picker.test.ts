@@ -34,7 +34,7 @@ describe("the chat's @ picker", () => {
       kind: "rows",
       title: "@attach",
       accent: theme.blue,
-      rows: CANDIDATES.map(({ text, detail }) => ({ text, fg: undefined, detail })),
+      rows: CANDIDATES.map(({ text, detail }) => ({ text, fg: undefined, detail, spans: [{ text, matched: false }] })),
       selected: 0,
     })
   })
@@ -81,5 +81,45 @@ describe("the chat's @ picker", () => {
     expect(at.open()).toBe(true)
     at.follow("@gr ", 4)
     expect(at.open()).toBe(false)
+  })
+})
+
+describe("the chat's @ picker's highlighted matches (spec 007)", () => {
+  const rowsFor = (query: string) => {
+    const at = picker()
+    at.follow(`@${query}`, query.length + 1)
+    const view = at.view()
+    return view?.kind === "rows" ? view.rows : []
+  }
+
+  test("a basename match lands at the end of the path drawn", () => {
+    expect(rowsFor("grt")[0]).toMatchObject({
+      text: "@src/greet.ts",
+      spans: [
+        { text: "@src/", matched: false },
+        { text: "gr", matched: true },
+        { text: "eet.", matched: false },
+        { text: "t", matched: true },
+        { text: "s", matched: false },
+      ],
+    })
+  })
+
+  test("a match only the full path makes lands on its directories", () => {
+    expect(rowsFor("srcg")[0]!.spans).toEqual([
+      { text: "@", matched: false },
+      { text: "src", matched: true },
+      { text: "/", matched: false },
+      { text: "g", matched: true },
+      { text: "reet.ts", matched: false },
+    ])
+  })
+
+  test("a keyword candidate's match lands past its @", () => {
+    expect(rowsFor("sel")[0]!.spans).toEqual([
+      { text: "@", matched: false },
+      { text: "sel", matched: true },
+      { text: "ection", matched: false },
+    ])
   })
 })

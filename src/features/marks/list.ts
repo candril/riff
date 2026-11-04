@@ -1,5 +1,5 @@
 import type { DiffFile } from "../../utils/diff-parser"
-import { fuzzyFilter } from "../../utils/fuzzy"
+import { fuzzyFilterMatches } from "../../utils/fuzzy"
 import { marksInOrder } from "./store"
 import { patchLines } from "./patch-lines"
 import type { Mark, MarksState } from "./types"
@@ -7,6 +7,8 @@ import type { Mark, MarksState } from "./types"
 export interface MarkEntry {
   mark: Mark
   text: string
+  /** Where the query matched `markEntrySearchText`. */
+  matched?: number[]
 }
 
 export function markEntries(marks: Pick<MarksState, "marks">, files: readonly DiffFile[]): MarkEntry[] {
@@ -28,8 +30,17 @@ export function markEntryLocation(entry: MarkEntry): string {
   return line === null ? filename : `${filename}:${line}`
 }
 
+/** The one text a mark is matched on; `matched` indexes it. */
+export function markEntrySearchText(entry: MarkEntry): string {
+  return `${entry.mark.letter} ${markEntryLocation(entry)} ${entry.text}`
+}
+
 export function filterMarkEntries(entries: MarkEntry[], query: string): MarkEntry[] {
-  return fuzzyFilter(query, entries, (e) => `${e.mark.letter} ${markEntryLocation(e)} ${e.text}`)
+  if (!query) return entries
+  return fuzzyFilterMatches(query, entries, markEntrySearchText).map(({ item, positions }) => ({
+    ...item,
+    matched: positions,
+  }))
 }
 
 export function marksPickerEntries(marks: Pick<MarksState, "marks">, files: readonly DiffFile[], query: string): MarkEntry[] {

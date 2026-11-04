@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test"
 import { commentsPickerModel } from "./comments-picker-model"
-import type { CommentsPickerEntry } from "../features/comments-picker/filter"
+import { buildEntries, filterEntries, type CommentsPickerEntry } from "../features/comments-picker/filter"
+import type { AppState } from "../state"
 import type { Comment } from "../types"
 import { theme, colors } from "../theme"
 
@@ -63,5 +64,50 @@ describe("commentsPickerModel", () => {
   test("draws a local comment's author, stored with its @, with one @", () => {
     const [local] = commentsPickerModel([entry("1", { author: "@you" })], 0, TALL).rows
     expect(local!.author).toBe("@you")
+  })
+})
+
+describe("commentsPickerModel: highlighted matches (spec 044)", () => {
+  const m = (text: string) => ({ text, matched: true })
+  const u = (text: string) => ({ text, matched: false })
+  const rowFor = (comment: Partial<Comment>, query: string) => {
+    const [built] = buildEntries({ comments: [{ ...entry("1").comment, ...comment }] } as AppState)
+    return commentsPickerModel(filterEntries([built!], query), 0, TALL).rows[0]
+  }
+
+  test("a body match lands on the preview, shifted by where the preview sits in the body", () => {
+    const row = rowFor({ body: "\n  nit: rename this\nsecond line", author: "octocat" }, "ren")
+    expect(row).toMatchObject({
+      preview: "nit: rename this",
+      previewSpans: [u("nit: "), m("ren"), u("ame this")],
+      locationSpans: [u("src/a.ts:3")],
+      authorSpans: [u("@octocat")],
+    })
+  })
+
+  test("a body match below the first line has nothing to show in the preview", () => {
+    expect(rowFor({ body: "nit: rename this\nsecond line" }, "second")!.previewSpans).toEqual([u("nit: rename this")])
+  })
+
+  test("a body match below the first line shows the first line's own match, when it matches by itself", () => {
+    // The body's best match is the substring in "second"; the preview holds sec only scattered.
+    expect(rowFor({ body: "see the cap\nsecond line" }, "sec")!.previewSpans).toEqual([m("se"), u("e the "), m("c"), u("ap")])
+  })
+
+  test("a body match on the first line keeps the body's positions, shifted onto the preview", () => {
+    expect(rowFor({ body: "\n  see the cap\nsecond" }, "cap")!.previewSpans).toEqual([u("see the "), m("cap")])
+  })
+
+  test("a filename match lands on the location", () => {
+    expect(rowFor({ body: "zzz", filename: "src/domain/FamilyReadModel.cs" }, "readmodel")!.locationSpans).toEqual([
+      u("src/domain/Family"),
+      m("ReadModel"),
+      u(".cs:3"),
+    ])
+  })
+
+  test("an author match lands past the @ the row adds, or on the @-less name of a local author", () => {
+    expect(rowFor({ body: "zzz", author: "octocat" }, "oct")!.authorSpans).toEqual([u("@"), m("oct"), u("ocat")])
+    expect(rowFor({ body: "zzz", author: "@you" }, "you")!.authorSpans).toEqual([u("@"), m("you")])
   })
 })

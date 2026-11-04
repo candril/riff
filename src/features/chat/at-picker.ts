@@ -5,7 +5,7 @@
  */
 
 import { createSignal } from "solid-js"
-import { clampSelection, filterAtCandidates, type AtPicker } from "../../components/at-picker"
+import { atRowSpans, clampSelection, filterAtMatches, keyOf, type AtPicker } from "../../components/at-picker"
 import { theme } from "../../theme"
 import { detectAtTrigger } from "../../utils/mentions"
 import type { InputPicker } from "../../app/at-picker-keys"
@@ -29,10 +29,11 @@ export function createChatAtPicker(
   input: () => RangeTextarea | null = () => null,
 ) {
   const [session, setSession] = createSignal<Session | null>(null)
-  const matches = () => {
+  const hits = () => {
     const open = session()
-    return open ? filterAtCandidates(candidates(), open.query, (candidate) => candidate.keys) : []
+    return open ? filterAtMatches(candidates(), open.query, (candidate) => candidate.keys) : []
   }
+  const matches = () => hits().map(({ item }) => item)
   const close = () => setSession(null)
 
   const control: InputPicker = {
@@ -66,13 +67,18 @@ export function createChatAtPicker(
     view(): AtPicker | null {
       const open = session()
       if (!open) return null
-      const found = matches()
+      const found = hits()
       if (found.length === 0) return { kind: "empty", text: `No match for @${open.query}` }
       return {
         kind: "rows",
         title: "@attach",
         accent: theme.blue,
-        rows: found.map(({ text, fg, detail }) => ({ text, fg, detail })),
+        rows: found.map(({ item: { text, fg, detail, keys }, field, positions }) => ({
+          text,
+          fg,
+          detail,
+          spans: atRowSpans(text, keyOf(keys, field), positions),
+        })),
         selected: clampSelection(open.selectedIndex, found.length),
       }
     },

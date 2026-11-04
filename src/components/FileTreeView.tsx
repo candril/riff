@@ -2,6 +2,7 @@ import { For, Show } from "solid-js"
 import type { InputRenderable, ScrollBoxRenderable } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { FileTreeModel } from "./file-tree-model"
+import { MatchedSpans } from "./MatchedSpans"
 import type { OverflowHints } from "./overflow-hints"
 
 /**
@@ -101,7 +102,9 @@ export function FileTreeView(props: {
                 <box height={1} width="100%" flexDirection="row" backgroundColor={row.bg ?? undefined}>
                   <text fg={row.marker.fg}>{row.marker.text}</text>
                   <text fg={row.status.fg}>{row.status.text}</text>
-                  <text fg={row.name.fg}>{row.name.text}</text>
+                  <text fg={row.name.fg}>
+                    <MatchedSpans spans={row.name.spans} fg={row.name.fg} />
+                  </text>
                 </box>
               )}
             </For>

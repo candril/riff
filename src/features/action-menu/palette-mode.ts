@@ -2,7 +2,7 @@ import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import { getAvailableActions } from "../../actions"
 import { submenuOpenedFromPalette, type ActionFocus } from "../../actions/types"
-import { fuzzyFilter } from "../../utils/fuzzy"
+import { fuzzyFilterMatches, fuzzyMatchPositions } from "../../utils/fuzzy"
 import type { ActionMenuMode } from "../../components/action-menu-model"
 import { getSubmenuRows } from "./submenu"
 import type { ActionMenuSnapshot } from "./state"
@@ -37,8 +37,17 @@ export function paletteMode(
     }
   }
   const available = getAvailableActions(state, vimState, focus)
+  if (!query) return { kind: "actions", actions: available }
+  const hits = fuzzyFilterMatches(query, available, (a) => [a.label, a.id, a.description])
   return {
     kind: "actions",
-    actions: query ? fuzzyFilter(query, available, (a) => [a.label, a.id, a.description]) : available,
+    actions: hits.map(({ item }) => item),
+    // Only the label is drawn: an action ranked on its id or description shows the label's own match, if it has one.
+    labelMatches: new Map(
+      hits.flatMap(({ item, field, positions }) => {
+        const drawn = field === 0 ? positions : fuzzyMatchPositions(query, item.label)?.positions
+        return drawn ? [[item.id, drawn] as const] : []
+      })
+    ),
   }
 }

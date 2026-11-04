@@ -3,6 +3,8 @@ import { filePickerModel, type FilteredFile } from "./file-picker-model"
 import { theme } from "../theme"
 import { getFileColor } from "../utils/file-colors"
 import type { DiffFile } from "../utils/diff-parser"
+import { createInitialState } from "../state"
+import { getFilteredFiles } from "../features/file-picker/filter"
 
 /** Tall enough that no list here is cut to the terminal. */
 const TALL = 60
@@ -46,5 +48,32 @@ describe("filePickerModel", () => {
 
   test("has nothing to say about an empty list but its count", () => {
     expect(filePickerModel([], 0, TALL)).toMatchObject({ count: "0", rows: [], empty: null })
+  })
+})
+
+describe("filePickerModel: highlighted matches (spec 007)", () => {
+  const m = (text: string) => ({ text, matched: true })
+  const u = (text: string) => ({ text, matched: false })
+  const state = createInitialState(
+    [file("src/domain/FamilyReadModel.cs", 1, 1), file("src/greet.ts", 1, 1)],
+    [],
+    "local",
+    "local changes"
+  )
+  const rowsFor = (query: string) => filePickerModel(getFilteredFiles(state, query), 0, TALL).rows
+
+  test("a match on the basename lands on the basename's characters in the full path drawn", () => {
+    expect(getFilteredFiles(state, "frm").map((f) => [f.file.filename, f.matched])).toEqual([
+      ["src/domain/FamilyReadModel.cs", [11, 17, 21]],
+    ])
+    expect(rowsFor("frm")[0]!.nameSpans).toEqual([u("src/domain/"), m("F"), u("amily"), m("R"), u("ead"), m("M"), u("odel.cs")])
+  })
+
+  test("a match only the full path makes is drawn where it fell, directories included", () => {
+    expect(rowsFor("sdf")[0]!.nameSpans).toEqual([m("s"), u("rc/"), m("d"), u("omain/"), m("F"), u("amilyReadModel.cs")])
+  })
+
+  test("no query draws every name plain", () => {
+    expect(rowsFor("").map((row) => row.nameSpans)).toEqual([[u("src/domain/FamilyReadModel.cs")], [u("src/greet.ts")]])
   })
 })

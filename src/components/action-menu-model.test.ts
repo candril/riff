@@ -65,8 +65,30 @@ describe("actionMenuModel", () => {
       TALL
     ).rows
     expect(rows).toEqual([
-      { kind: "submenu", id: "a", label: "♥  Heart", labelFg: theme.text, trailing: "you reacted", trailingFg: theme.green, accented: true, selected: false },
-      { kind: "submenu", id: "b", label: "Plain", labelFg: theme.text, trailing: null, trailingFg: theme.overlay0, accented: false, selected: true },
+      {
+        kind: "submenu",
+        id: "a",
+        label: "♥  Heart",
+        labelSpans: [{ text: "♥  Heart", matched: false }],
+        labelFg: theme.text,
+        trailing: "you reacted",
+        trailingSpans: [{ text: "you reacted", matched: false }],
+        trailingFg: theme.green,
+        accented: true,
+        selected: false,
+      },
+      {
+        kind: "submenu",
+        id: "b",
+        label: "Plain",
+        labelSpans: [{ text: "Plain", matched: false }],
+        labelFg: theme.text,
+        trailing: null,
+        trailingSpans: [],
+        trailingFg: theme.overlay0,
+        accented: false,
+        selected: true,
+      },
     ])
   })
 })

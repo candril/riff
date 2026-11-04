@@ -75,6 +75,12 @@ export const colors = {
   // Flash jump labels (specs 022, 066)
   flashLabel: theme.red,
 
+  // The characters a picker's query matched, as the occurrence picker draws
+  // its narrowing terms (spec 099). A block rather than a colour: the file
+  // picker already colours names by file type with nearly every accent.
+  filterMatchFg: theme.crust,
+  filterMatchBg: theme.teal,
+
   // Comments
   commentMarker: theme.mauve,
   commentLocal: theme.blue,

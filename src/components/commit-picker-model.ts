@@ -1,11 +1,14 @@
 import { theme } from "../theme"
 import type { PrCommit } from "../providers/github/types"
 import { EMPTY_CHANGE } from "../providers/local"
+import { matchSpans, type MatchSpan } from "./match-spans"
 import { pickerWindow, visibleRows, type PickerModel, type PickerRow } from "./picker-window"
 
 export interface FilteredCommit {
   commit: PrCommit
   index: number  // Original index in commits array
+  /** Which of the commit's texts the query matched, and where. */
+  matched?: { field: "message" | "sha" | "author"; positions: number[] }
 }
 
 /** Max items in view, "All commits" included. */
@@ -45,12 +48,15 @@ export interface CommitRow extends PickerRow {
   /** Marked for the next scope (spec 078). */
   marked: boolean
   sha: string
+  shaSpans: MatchSpan[]
   shaFg: string
   message: string
+  messageSpans: MatchSpan[]
   messageFg: string
   /** EMPTY_CHANGE for a change with no files in it, else null. */
   note: string | null
   author: string
+  authorSpans: MatchSpan[]
   time: string
 }
 
@@ -96,6 +102,9 @@ export function formatTimeAgo(isoDate: string, now: Date): string {
 function commitRow(item: FilteredCommit, selected: boolean, input: CommitPickerInput, now: Date): CommitRow {
   const { commit } = item
   const marked = input.marked.has(commit.sha)
+  const positionsIn = (field: "message" | "sha" | "author") =>
+    item.matched?.field === field ? item.matched.positions : []
+  const author = `@${commit.author}`
   return {
     id: `commit:${item.index}`,
     selected,
@@ -103,13 +112,17 @@ function commitRow(item: FilteredCommit, selected: boolean, input: CommitPickerI
     active: input.viewingCommit === commit.sha,
     marked,
     sha: commit.sha,
+    shaSpans: matchSpans(commit.sha, positionsIn("sha")),
     shaFg: marked ? theme.peach : selected ? theme.peach : theme.yellow,
     message: commit.message,
+    messageSpans: matchSpans(commit.message, positionsIn("message")),
     messageFg: marked ? theme.peach : selected ? theme.text : theme.subtext1,
     // A change with nothing in it scopes the diff to nothing, so the row
     // says so rather than letting the reader find out by picking it.
     note: commit.empty ? EMPTY_CHANGE : null,
-    author: `@${commit.author}`,
+    author,
+    // The "@" is the row's, not the author's: what was matched starts after it.
+    authorSpans: matchSpans(author, positionsIn("author"), -1),
     time: formatTimeAgo(commit.date, now),
   }
 }

@@ -1,5 +1,6 @@
 import { For, Match, Show, Switch, type JSX } from "solid-js"
 import { theme } from "../theme"
+import { MatchedSpans } from "./MatchedSpans"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { ActionMenuModel, ActionMenuRow } from "./action-menu-model"
 
@@ -8,7 +9,9 @@ type Of<Kind extends ActionMenuRow["kind"]> = Extract<ActionMenuRow, { kind: Kin
 function ActionRow(props: { row: Of<"action"> }) {
   return (
     <box flexDirection="row" justifyContent="space-between" backgroundColor={rowBackground(props.row.selected)} paddingX={2} width="100%">
-      <text fg={props.row.labelFg}>{props.row.label}</text>
+      <text fg={props.row.labelFg}>
+        <MatchedSpans spans={props.row.labelSpans} fg={props.row.labelFg} />
+      </text>
       <Show when={props.row.shortcut}>{(shortcut: () => string) => <text fg={theme.overlay0}>{shortcut()}</text>}</Show>
     </box>
   )
@@ -31,14 +34,16 @@ function SubmenuRowView(props: { row: Of<"submenu"> }) {
       overflow="hidden"
     >
       <box flexShrink={0}>
-        <text fg={props.row.labelFg}>{props.row.label}</text>
+        <text fg={props.row.labelFg}>
+          <MatchedSpans spans={props.row.labelSpans} fg={props.row.labelFg} />
+        </text>
       </box>
       <Show when={props.row.trailing}>
-        {(trailing: () => string) => (
-          <box flexShrink={1} overflow="hidden" paddingLeft={2}>
-            <text fg={props.row.trailingFg}>{trailing()}</text>
-          </box>
-        )}
+        <box flexShrink={1} overflow="hidden" paddingLeft={2}>
+          <text fg={props.row.trailingFg}>
+            <MatchedSpans spans={props.row.trailingSpans} fg={props.row.trailingFg} />
+          </text>
+        </box>
       </Show>
     </box>
   )

@@ -1,5 +1,6 @@
 import { For, Show, type JSX } from "solid-js"
 import { theme } from "../theme"
+import { MatchedSpans } from "./MatchedSpans"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { FilePickerModel, FilePickerRow } from "./file-picker-model"
 
@@ -12,7 +13,9 @@ function FileRow(props: { row: FilePickerRow }) {
         <Show when={props.row.viewed}>
           <text fg={theme.green}>{"✓ "}</text>
         </Show>
-        <text fg={props.row.nameFg}>{props.row.name}</text>
+        <text fg={props.row.nameFg}>
+          <MatchedSpans spans={props.row.nameSpans} fg={props.row.nameFg} />
+        </text>
       </box>
       <box flexDirection="row">
         <Show when={props.row.comments}>{(comments: () => string) => <text fg={theme.blue}>{`${comments()} `}</text>}</Show>

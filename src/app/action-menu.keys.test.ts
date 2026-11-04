@@ -107,12 +107,15 @@ function paletteRows(mounted: NonNullable<typeof app>, keys: ReturnType<typeof k
   return mode.kind === "actions" ? getVisualActionOrder(mode.actions).map((action) => action.label) : []
 }
 
-/** Whether the row drawing `label` wears the selection's shade. */
+/**
+ * Whether the row drawing `label` wears the selection's shade, read off the
+ * row's padding left of the label, which a matched character never covers.
+ */
 async function shaded(mounted: NonNullable<typeof app>, label: string) {
   const lines = (await mounted.frame()).split("\n")
   const y = lines.findIndex((line) => line.includes(label))
   expect(y).toBeGreaterThan(-1)
-  return String(bgAt(mounted.setup.captureSpans(), 27, y)) === String(ints(theme.surface0))
+  return String(bgAt(mounted.setup.captureSpans(), 26, y)) === String(ints(theme.surface0))
 }
 
 test("a query narrows the palette with the shade on its first match, typing moves the shade back there, and Ctrl-p after Esc opens on the full list", async () => {

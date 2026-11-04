@@ -4,6 +4,8 @@ import type { FileReviewStatus } from "../types"
 import { flattenTree, filterTree, filteredFilenames } from "../utils/file-tree"
 import { colors, theme } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
+import { fuzzyMatchPositions } from "../utils/fuzzy"
+import { matchSpans, type MatchSpan } from "./match-spans"
 
 export interface FileTreeModelInput {
   files: DiffFile[]
@@ -45,7 +47,8 @@ export interface FileTreeRow {
   bg: string | null
   marker: FileTreeCell
   status: FileTreeCell
-  name: FileTreeCell
+  /** `spans` is the text with what the filter matched picked out. */
+  name: FileTreeCell & { spans: MatchSpan[] }
 }
 
 export interface FileTreeModel {
@@ -170,6 +173,7 @@ function treeRow(item: FlatTreeItem, input: FileTreeModelInput): FileTreeRow {
   const prefixLen = 4 + indent.length + icon.length
   const reserved = 2 + marks.length
   const displayName = truncate(node.name, Math.max(5, input.width - prefixLen - reserved))
+  const nameText = `${indent}${icon}${displayName}${marks}`
 
   return {
     key: node.path,
@@ -183,10 +187,38 @@ function treeRow(item: FlatTreeItem, input: FileTreeModelInput): FileTreeRow {
       fg: viewed ? colors.fileViewed : node.file ? getStatusColor(node.file.status) : colors.text,
     },
     name: {
-      text: `${indent}${icon}${displayName}${marks}`,
+      text: nameText,
       fg: unseen && !node.isDirectory ? colors.commentLocal : nameFg,
+      spans: matchSpans(nameText, ...nameMatch(node, input.treeFilter, nameText.length - marks.length - displayName.length, displayName)),
     },
   }
+}
+
+/**
+ * Where the filter matched the node, for `matchSpans` over a row that draws
+ * the name `at` cells in. The filter matches the whole path, and the row
+ * shows only its last segments, so the directories' share of a file's match
+ * is not drawn, and a name that matches the filter by itself shows its own
+ * match instead; a directory kept only for the files under it matched
+ * nothing of its own. A name cut with `…` shows no match past the cut.
+ */
+function nameMatch(
+  node: FileTreeNode,
+  filter: string,
+  at: number,
+  displayName: string
+): [positions: number[], offset: number, visible: number] {
+  const shown = displayName === node.name ? displayName.length : displayName.length - 1
+  if (!filter.trim() || !node.path.endsWith(node.name)) return [[], 0, 0]
+  const nameStart = node.path.length - node.name.length
+  const positions = fuzzyMatchPositions(filter, node.path)?.positions ?? []
+  // A match in the directories above lands on the indent and the arrow, which are not the name.
+  const landed = positions.filter((p) => p >= nameStart)
+  if (landed.length < positions.length) {
+    const own = fuzzyMatchPositions(filter, node.name)?.positions
+    if (own) return [own, -at, at + shown]
+  }
+  return [landed, nameStart - at, at + shown]
 }
 
 /** A directory is viewed when every file under it is, and stale when any viewed one is. */

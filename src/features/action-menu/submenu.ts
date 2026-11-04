@@ -12,7 +12,7 @@ import type { AppState } from "../../state"
 import { getReactionsForTarget } from "../../state"
 import type { SubmenuRow } from "../../components"
 import { REACTION_CONTENT, REACTION_META, type ReactionContent } from "../../types"
-import { fuzzyFilter } from "../../utils/fuzzy"
+import { fuzzyFilterMatches, fuzzyMatchPositions } from "../../utils/fuzzy"
 import type { ActionSubmenu } from "../../actions/types"
 import type { ActionMenuSnapshot } from "./state"
 
@@ -69,7 +69,15 @@ export function getSubmenuRows(
   }
 
   if (!query) return rows
-  return fuzzyFilter(query, rows, row => [row.label, row.trailing ?? "", row.id])
+  return fuzzyFilterMatches(query, rows, row => [row.label, row.trailing ?? "", row.id]).map(({ item, field, positions }) => {
+    if (field === 0) return { ...item, labelMatched: positions }
+    if (field === 1) return { ...item, trailingMatched: positions }
+    // The id is not drawn: a row ranked on it shows the label's own match, else the note's, if either has one.
+    const label = fuzzyMatchPositions(query, item.label)?.positions
+    if (label) return { ...item, labelMatched: label }
+    const trailing = item.trailing ? fuzzyMatchPositions(query, item.trailing)?.positions : undefined
+    return trailing ? { ...item, trailingMatched: trailing } : item
+  })
 }
 
 /**

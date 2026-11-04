@@ -1,5 +1,6 @@
 import { For, Match, Show, Switch, type JSX } from "solid-js"
 import { theme } from "../theme"
+import { MatchedSpans } from "./MatchedSpans"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { AllCommitsRow, CommitPickerModel, CommitPickerRow, CommitRow } from "./commit-picker-model"
 
@@ -48,15 +49,21 @@ function ShaRow(props: { row: CommitRow }) {
         {/* Only the subject gives way: were the dot, the sha or the gap after
             it allowed to shrink, they collapse first and the sha runs into the subject. */}
         <text fg={theme.green} flexShrink={0}>{props.row.active ? "● " : "  "}</text>
-        <text fg={props.row.shaFg} flexShrink={0}>{props.row.sha}</text>
+        <text fg={props.row.shaFg} flexShrink={0}>
+          <MatchedSpans spans={props.row.shaSpans} fg={props.row.shaFg} />
+        </text>
         <text fg={theme.overlay0} flexShrink={0}>{"  "}</text>
-        <text fg={props.row.messageFg} flexShrink={1}>{props.row.message}</text>
+        <text fg={props.row.messageFg} flexShrink={1}>
+          <MatchedSpans spans={props.row.messageSpans} fg={props.row.messageFg} />
+        </text>
       </box>
       {/* paddingLeft keeps a gap when the subject is long enough to shrink
           into it — without one the message runs straight into the author. */}
       <box flexDirection="row" flexShrink={0} paddingLeft={2}>
         <Show when={props.row.note}>{(note: () => string) => <text fg={theme.overlay0}>{`${note()}  `}</text>}</Show>
-        <text fg={theme.overlay0}>{props.row.author}</text>
+        <text fg={theme.overlay0}>
+          <MatchedSpans spans={props.row.authorSpans} fg={theme.overlay0} />
+        </text>
         <text fg={theme.overlay0}>{`  ${props.row.time}`}</text>
       </box>
     </box>

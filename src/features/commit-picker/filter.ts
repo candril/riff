@@ -1,6 +1,8 @@
 import type { PrCommit } from "../../providers/github/types"
 import type { FilteredCommit } from "../../components/CommitPicker"
-import { fuzzyFilter } from "../../utils/fuzzy"
+import { fuzzyFilterMatches } from "../../utils/fuzzy"
+
+const COMMIT_FIELDS = ["message", "sha", "author"] as const
 
 export function getFilteredCommits(commits: readonly PrCommit[], query: string): FilteredCommit[] {
   const allCommits: FilteredCommit[] = commits.map((commit, index) => ({
@@ -8,9 +10,10 @@ export function getFilteredCommits(commits: readonly PrCommit[], query: string):
     index,
   }))
 
-  return query
-    ? fuzzyFilter(query, allCommits, (f) => [f.commit.message, f.commit.sha, f.commit.author])
-    : allCommits
+  if (!query) return allCommits
+  return fuzzyFilterMatches(query, allCommits, (f) => [f.commit.message, f.commit.sha, f.commit.author]).map(
+    ({ item, field, positions }) => ({ ...item, matched: { field: COMMIT_FIELDS[field]!, positions } })
+  )
 }
 
 /** The commits marked for the next scope, newest first (spec 078). */

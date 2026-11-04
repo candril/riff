@@ -3,6 +3,7 @@ import { commitPickerModel, fitKeyLines, formatTimeAgo, COMMIT_KEY_GROUPS, type 
 import type { PrCommit } from "../providers/github/types"
 import { EMPTY_CHANGE } from "../providers/local"
 import { theme } from "../theme"
+import { getFilteredCommits } from "../features/commit-picker/filter"
 
 const NOW = new Date("2026-10-17T12:00:00Z")
 /** Tall enough that no list here is cut to the terminal. */
@@ -43,11 +44,14 @@ describe("commitPickerModel", () => {
       active: false,
       marked: false,
       sha: "aaa",
+      shaSpans: [{ text: "aaa", matched: false }],
       shaFg: theme.yellow,
       message: "message aaa",
+      messageSpans: [{ text: "message aaa", matched: false }],
       messageFg: theme.subtext1,
       note: null,
       author: "@octocat",
+      authorSpans: [{ text: "@octocat", matched: false }],
       time: "5m ago",
     })
   })
@@ -145,5 +149,32 @@ describe("formatTimeAgo", () => {
     expect(formatTimeAgo(minutesAgo(60 * 5), NOW)).toBe("5h ago")
     expect(formatTimeAgo(minutesAgo(60 * 24 * 3), NOW)).toBe("3d ago")
     expect(formatTimeAgo(minutesAgo(60 * 24 * 15), NOW)).toBe("2w ago")
+  })
+})
+
+describe("commitPickerModel: highlighted matches (spec 007)", () => {
+  const m = (text: string) => ({ text, matched: true })
+  const u = (text: string) => ({ text, matched: false })
+  const COMMITS = [
+    commit("abc1234", { message: "fix the read model", author: "octocat" }),
+    commit("def5678", { message: "something else", author: "hubot" }),
+  ]
+  const rowFor = (query: string) =>
+    commitPickerModel(input({ commits: getFilteredCommits(COMMITS, query), query }), WIDE, TALL, NOW).rows[1]
+
+  test("a message match lands on the message, and the sha and author stay plain", () => {
+    expect(rowFor("read")).toMatchObject({
+      messageSpans: [u("fix the "), m("read"), u(" model")],
+      shaSpans: [u("abc1234")],
+      authorSpans: [u("@octocat")],
+    })
+  })
+
+  test("a sha match lands on the sha", () => {
+    expect(rowFor("def5")).toMatchObject({ shaSpans: [m("def5"), u("678")], messageSpans: [u("something else")] })
+  })
+
+  test("an author match lands past the row's @", () => {
+    expect(rowFor("hub")).toMatchObject({ authorSpans: [u("@"), m("hub"), u("ot")], messageSpans: [u("something else")] })
   })
 })
