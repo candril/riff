@@ -11,6 +11,11 @@ describe("parseArgs", () => {
     expect(parseArgs([], noPaths)).toEqual({ type: "local" })
   })
 
+  test("--open and -o ask for a PR", () => {
+    expect(parseArgs(["--open"], noPaths)).toEqual({ type: "local", open: true })
+    expect(parseArgs(["-o"], noPaths)).toEqual({ type: "local", open: true })
+  })
+
   test("a bare number stays a PR, even where a file of that name exists", () => {
     const parsed = parseArgs(["123"], fs({ "123": "file" }))
     expect(parsed.type).toBe("pr")

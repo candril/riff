@@ -17,6 +17,8 @@ export interface CliArgs {
   help?: boolean
   version?: boolean
   demo?: boolean
+  // Ask which PR to open, even with changes to review (spec 112)
+  open?: boolean
 }
 
 /**
@@ -51,6 +53,9 @@ export function parseArgs(
   // whatever else was typed rather than reviewing the launch directory.
   if (args.includes("--demo")) {
     return { type: "local", demo: true }
+  }
+  if (args.includes("-o") || args.includes("--open")) {
+    return { type: "local", open: true }
   }
 
   // `-r <rev>` is the way out of the ambiguity below: on a repo that holds a

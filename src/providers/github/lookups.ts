@@ -7,6 +7,52 @@ import { readStack, type StackInfo } from "../../utils/stack"
 /** References resolved per GraphQL call — GitHub caps a query's node count. */
 const REFERENCE_BATCH = 25
 
+export interface PrSummary {
+  title: string
+  state: "OPEN" | "CLOSED" | "MERGED"
+  isDraft: boolean
+  author: string | null
+}
+
+/** By "owner/repo"; null where the repository or the PR is not there, or not visible. */
+export type PrLookups = Map<string, PrSummary | null>
+
+/**
+ * One PR number in many repositories, in one query (spec 112). `repos` come
+ * from config and from what was typed, hence JSON.stringify on the way into
+ * the query text.
+ */
+export async function lookupPrs(repos: readonly { owner: string; repo: string }[], number: number): Promise<PrLookups> {
+  const fields = repos.map(
+    ({ owner, repo }, i) =>
+      `r${i}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)}) { pullRequest(number: ${number}) { title state isDraft author { login } } }`
+  )
+  // gh exits non-zero as soon as one alias is not found, with the others on
+  // stdout, and being not found is an answer here. So stdout decides.
+  const result = await $`gh api graphql -f query=${`query { ${fields.join(" ")} }`}`.quiet().nothrow()
+  return readPrLookups(result.stdout.toString(), result.stderr.toString(), repos)
+}
+
+export function readPrLookups(stdout: string, stderr: string, repos: readonly { owner: string; repo: string }[]): PrLookups {
+  const parsed = safeJson(stdout) as {
+    data?: Record<string, { pullRequest?: { title: string; state: PrSummary["state"]; isDraft: boolean; author: { login: string } | null } | null } | null> | null
+    errors?: { message?: string }[]
+  } | null
+  if (!parsed?.data) {
+    const reason = parsed?.errors?.[0]?.message ?? stderr.split("\n").find((line) => line.trim())?.trim()
+    throw new Error(reason ?? "GitHub did not answer")
+  }
+  const lookups: PrLookups = new Map()
+  repos.forEach(({ owner, repo }, i) => {
+    const pr = parsed.data![`r${i}`]?.pullRequest
+    lookups.set(
+      `${owner}/${repo}`,
+      pr ? { title: pr.title, state: pr.state, isDraft: pr.isDraft, author: pr.author?.login ?? null } : null
+    )
+  })
+  return lookups
+}
+
 /**
  * Fetch annotations for a single check run (spec 043).
  */

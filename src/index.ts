@@ -6,9 +6,14 @@ import { loadPrSession } from "./providers/github/session"
 import { getCurrentRepo } from "./providers/github/exec"
 import { resolveCurrentPr } from "./providers/current-pr"
 import { createDemoRepo } from "./providers/demo"
-import { resolveStorageWithConfirmation } from "./storage/resolve"
+import { findRepoRoot, resolveStorageWithConfirmation } from "./storage/resolve"
 import { runCommentsCli } from "./cli/comments"
-import { parseArgs } from "./cli/args"
+import { parseArgs, type CliArgs } from "./cli/args"
+import { getLocalDiff } from "./providers/local"
+import { lookupPrs } from "./providers/github/lookups"
+import { getCurrentRepoRef } from "./providers/repo"
+import { loadKnownRepos } from "./features/open-pr/known-repos"
+import { runOpenPrScreen } from "./app/open-pr"
 
 export { parseArgs, probePath, type CliArgs, type PathKind } from "./cli/args"
 import * as readline from "readline"
@@ -37,7 +42,7 @@ const HELP_TEXT = `
     Comments are stored locally in .riff/ and can be synced to GitHub when ready.
 
 \x1b[1mTARGETS\x1b[0m
-    \x1b[36m(no argument)\x1b[0m              Review uncommitted changes (working directory)
+    \x1b[36m(no argument)\x1b[0m              Review uncommitted changes; with none, or outside a repo, ask for a PR to open
     \x1b[36mpr\x1b[0m                        Review PR for current branch/bookmark
     \x1b[36m<pr-number>\x1b[0m               Review GitHub PR in current repo (e.g., 123 or #123)
     \x1b[36m<revision>\x1b[0m                Review local commits (e.g., HEAD~3, main..HEAD, @-)
@@ -79,6 +84,7 @@ const HELP_TEXT = `
     $ riff https://github.com/facebook/react/pull/1234
 
 \x1b[1mOPTIONS\x1b[0m
+    \x1b[33m-o, --open\x1b[0m                Ask for a PR to open: a link, 123, repo#123, repo/123 or owner/repo#123
     \x1b[33m--demo\x1b[0m                    Review a repository riff generates: no network, no gh
     \x1b[33m-r, --revision <rev>\x1b[0m      Read <rev> as a revision, even where a path of that name exists
     \x1b[33m-h, --help\x1b[0m                Show this help message
@@ -316,6 +322,43 @@ async function resolveSourceForCli(target: string | undefined): Promise<string> 
   return source
 }
 
+async function readLocalChanges(): Promise<"some" | "none" | "unreadable"> {
+  try {
+    return (await getLocalDiff()).trim() ? "some" : "none"
+  } catch {
+    return "unreadable"
+  }
+}
+
+/**
+ * The screen for a `riff` with nothing to review (spec 112). A PR chosen there
+ * goes into `args`, so the rest of startup is what `riff gh:owner/repo#123` runs.
+ */
+async function askForPr(args: CliArgs): Promise<"continue" | "quit"> {
+  const bare = args.type === "local" && !args.target && !args.demo
+  if (!bare || !process.stdin.isTTY || !process.stdout.isTTY) return "continue"
+
+  const local = await readLocalChanges()
+  if (local === "some" && !args.open) return "continue"
+
+  const [current, repoRoot] = await Promise.all([getCurrentRepoRef(), findRepoRoot()])
+  const outcome = await runOpenPrScreen({
+    current,
+    known: loadKnownRepos(),
+    lookup: lookupPrs,
+    hasLocalReview: local !== "unreadable",
+    nothingHere: local === "some" ? null : repoRoot ? "No changes to review here" : "Not in a repository",
+  })
+  if (outcome.kind === "quit") return "quit"
+  if (outcome.kind === "pr") {
+    args.type = "pr"
+    args.owner = outcome.choice.owner
+    args.repo = outcome.choice.repo
+    args.prNumber = outcome.choice.number
+  }
+  return "continue"
+}
+
 async function main() {
   if (process.argv[2] === "comments") {
     try {
@@ -344,6 +387,8 @@ async function main() {
   }
 
   try {
+    if (await askForPr(args) === "quit") process.exit(0)
+
     if (args.type === "pr") {
       if (!args.prNumber) {
         console.log("Resolving PR for current branch...")
