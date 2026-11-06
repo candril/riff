@@ -3,6 +3,8 @@ import { TextAttributes } from "@opentui/core"
 import { cellCount } from "../split-view/layout"
 import { theme } from "../theme"
 import { cellsOf } from "./cells"
+import { contrast } from "./contrast"
+import { ADDITION_BG, CURSOR_ADDITION_BG, CURSOR_DELETION_BG, DELETION_BG } from "./line-colors"
 import { buildSegments, sliceSegments, type Segment, type SegmentInput } from "./segments"
 import { SYNTAX_PALETTE } from "./syntax-palette"
 
@@ -45,6 +47,34 @@ describe("buildSegments", () => {
     ])
     const removed = build("x", { wordSide: "removed", words: [{ startCol: 0, endCol: 1 }] })
     expect(removed[0]!.bg).toBe(SYNTAX_PALETTE["diff.word.removed"]!.bg)
+  })
+
+  describe("a dim syntax colour on a diff background", () => {
+    const comment = [[0, 1, "comment"]] as const
+    const removed = SYNTAX_PALETTE["diff.word.removed"]!.bg!
+
+    test.each([
+      ["a changed word, added", { words: [{ startCol: 0, endCol: 1 }] }, added!],
+      ["a changed word, removed", { wordSide: "removed", words: [{ startCol: 0, endCol: 1 }] }, removed],
+      ["the added row", { rowBg: ADDITION_BG }, ADDITION_BG],
+      ["the removed row", { rowBg: DELETION_BG }, DELETION_BG],
+      ["the added cursor row", { rowBg: CURSOR_ADDITION_BG }, CURSOR_ADDITION_BG],
+      ["the removed cursor row", { rowBg: CURSOR_DELETION_BG }, CURSOR_DELETION_BG],
+      ["the selection", { selection: { from: 0, to: 1 } }, theme.surface1],
+    ] as [string, Partial<SegmentInput>, string][])("reads on %s", (_name, input, bg) => {
+      const [cell] = build("a", { spans: comment, ...input })
+      expect(contrast(cell!.fg, bg)).toBeGreaterThanOrEqual(3.3)
+      expect(cell!.attributes).toBe(TextAttributes.ITALIC)
+    })
+
+    test("stays as it is on the plain diff", () => {
+      expect(build("a", { spans: comment })[0]!.fg).toBe(theme.overlay0)
+    })
+
+    test("is still dimmer than plain text on the same word", () => {
+      const [cell] = build("a", { spans: comment, words: [{ startCol: 0, endCol: 1 }] })
+      expect(contrast(cell!.fg, added!)).toBeLessThan(contrast(theme.text, added!))
+    })
   })
 
   test("a search match inside a changed word shows as a match, the current one above the rest", () => {

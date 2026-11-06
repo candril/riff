@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import { theme } from "../theme"
 import type { WordSpan } from "../vim-diff/word-diff"
 import { isAscii, walkCells } from "./cells"
+import { legibleOn } from "./contrast"
 import { SYNTAX_PALETTE, styleOfCapture } from "./syntax-palette"
 
 /** How far flash's backdrop pulls text towards the background it sits on. */
@@ -97,6 +98,9 @@ export function buildSegments(text: string, input: SegmentInput): Segment[] {
   for (const word of input.words ?? []) paint({ from: word.startCol, to: word.endCol, bg: wordBg })
 
   for (const overlay of overlays) paint(overlay)
+
+  // Before flash, whose backdrop fades text on purpose.
+  for (let i = 0; i < cells; i++) fg[i] = legibleOn(fg[i]!, bg[i] ?? input.rowBg)
 
   if (input.flash) {
     for (let i = 0; i < cells; i++) fg[i] = fade(fg[i]!, bg[i] ?? input.rowBg)

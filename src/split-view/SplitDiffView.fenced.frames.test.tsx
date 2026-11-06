@@ -1,4 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
+import { legibleOn } from "../diff-rows/contrast"
+import { ADDITION_BG } from "../diff-rows/line-colors"
 import { fgAt, ints, mountSplit } from "../testing/split-frame"
 import { theme } from "../theme"
 import { parseHighlights } from "../vim-diff/file-parses"
@@ -61,7 +63,7 @@ test("a fenced ts block in a markdown diff takes typescript's colours, its fence
   const fence = cellOf(rows, "```ts")
   expect(holder.x).toBeGreaterThanOrEqual(80)
   expect(fgAt(spans, holder.x, holder.y)).toEqual(sapphire)
-  expect(fgAt(spans, comment.x, comment.y)).toEqual(ints(theme.overlay0))
+  expect(fgAt(spans, comment.x, comment.y)).toEqual(ints(legibleOn(theme.overlay0, ADDITION_BG)))
   expect(fgAt(spans, type.x, type.y)).toEqual(ints(theme.yellow))
   for (const cell of [holder, comment, type]) expect(fgAt(spans, cell.x, cell.y)).not.toEqual(ints(theme.green))
   expect(fgAt(spans, fence.x, fence.y)).toEqual(ints(theme.green))
