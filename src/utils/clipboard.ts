@@ -6,6 +6,21 @@
  * Failures are returned rather than thrown so callers can toast them.
  */
 
+// On the startup path, so a helper that hangs (xclip with a dead display) costs the prefill and not the launch.
+const READ_TIMEOUT_MS = 500
+
+/** The clipboard's text, or null where there is none or no way to ask. */
+export async function readClipboard(): Promise<string | null> {
+  const cmd = process.platform === "darwin" ? ["pbpaste"] : ["xclip", "-selection", "clipboard", "-o"]
+  try {
+    const proc = Bun.spawn(cmd, { stdin: "ignore", stdout: "pipe", stderr: "ignore", timeout: READ_TIMEOUT_MS })
+    const [text, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
+    return exitCode === 0 ? text : null
+  } catch {
+    return null
+  }
+}
+
 export type CopyResult = { ok: true } | { ok: false; error: string }
 
 /**

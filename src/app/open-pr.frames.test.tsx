@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { render } from "@opentui/solid"
 import type { PrLookups } from "../providers/github/lookups"
@@ -29,6 +29,7 @@ async function mount(deps: Partial<OpenPrScreenDeps> = {}) {
       lookup: async () => LOOKUPS,
       hasLocalReview: false,
       nothingHere: "Not in a repository",
+      clipboard: null,
       ...deps,
     },
     (outcome) => outcomes.push(outcome)
@@ -162,6 +163,7 @@ test("a narrow terminal truncates a row rather than wrapping it", async () => {
       lookup: async () => new Map([["acme/isomorph", { title: "A very long title that cannot fit anywhere near this", state: "OPEN", isDraft: false, author: "kim" }]]),
       hasLocalReview: false,
       nothingHere: null,
+      clipboard: null,
     },
     () => {}
   )
@@ -174,4 +176,71 @@ test("a narrow terminal truncates a row rather than wrapping it", async () => {
   const row = trimFrame(mounted.captureCharFrame()).split("\n").find((line) => line.includes("acme/isomorph"))!
   expect(row).toContain("…")
   expect(trimFrame(mounted.captureCharFrame())).not.toContain("near this")
+})
+
+describe("a reference on the clipboard", () => {
+  const LINK = "https://github.com/acme/web/pull/7"
+  const FOUND = async () => new Map([["acme/web", { title: "Fix", state: "OPEN" as const, isDraft: false, author: "kim" }]])
+
+  test("starts the field, saying where it came from, and Enter opens it", async () => {
+    const { frame, mockInput, outcomes } = await mount({ clipboard: LINK, lookup: FOUND })
+    const drawn = await frame()
+    expect(drawn).toContain(LINK)
+    expect(drawn).toContain("From the clipboard")
+    expect(outcomes).toEqual([])
+    mockInput.pressEnter()
+    await frame()
+    expect(outcomes).toEqual([{ kind: "pr", choice: { owner: "acme", repo: "web", number: 7 } }])
+  })
+
+  test("typing replaces it", async () => {
+    const { frame, mockInput } = await mount({ clipboard: LINK })
+    await frame()
+    await mockInput.typeText("web#3")
+    const drawn = await frame()
+    expect(drawn).toContain("web#3")
+    expect(drawn).not.toContain(LINK)
+    expect(drawn).not.toContain("From the clipboard")
+  })
+
+  test("a paste replaces it", async () => {
+    const { frame, mockInput } = await mount({ clipboard: LINK })
+    await frame()
+    await mockInput.pasteBracketedText("acme/other#9")
+    const drawn = await frame()
+    expect(drawn).toContain("acme/other#9")
+    expect(drawn).not.toContain(LINK)
+  })
+
+  test("Backspace clears it whole", async () => {
+    const { frame, mockInput } = await mount({ clipboard: LINK })
+    await frame()
+    mockInput.pressBackspace()
+    const drawn = await frame()
+    expect(drawn).not.toContain("github.com")
+    expect(drawn).toContain("Paste a link")
+  })
+
+  test("moving the cursor keeps it for editing", async () => {
+    const { frame, mockInput } = await mount({ clipboard: LINK })
+    await frame()
+    mockInput.pressArrow("left")
+    await frame()
+    mockInput.pressBackspace()
+    await mockInput.typeText("8")
+    const drawn = await frame()
+    expect(drawn).toContain("github.com/acme/web/pull87")
+    expect(drawn).not.toContain("From the clipboard")
+  })
+
+  test("a PR that is not there is said in place of the note, and typing still replaces it", async () => {
+    const { frame, mockInput } = await mount({ clipboard: LINK, lookup: async () => new Map([["acme/web", null]]) })
+    await frame()
+    mockInput.pressEnter()
+    const drawn = await frame()
+    expect(drawn).toContain("There is no acme/web#7")
+    expect(drawn).not.toContain("From the clipboard")
+    await mockInput.typeText("x")
+    expect(await frame()).not.toContain("github.com")
+  })
 })

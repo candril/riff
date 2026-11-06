@@ -31,6 +31,20 @@ export function parsePrReference(text: string): PrReference | null {
   return null
 }
 
+// A paragraph that happens to hold a link is not a reference, and would not fit the field.
+const LONGEST_CLIPBOARD_REFERENCE = 300
+
+export function clipboardReference(
+  clipboard: string | null,
+  context: { current: RepoName | null; known: readonly KnownRepo[] }
+): string | null {
+  const text = clipboard?.trim()
+  if (!text || text.length > LONGEST_CLIPBOARD_REFERENCE || text.includes("\n")) return null
+  const reference = parsePrReference(text)
+  // `docs/12` parses as repo/id; only a repo riff knows makes it one rather than a path.
+  return reference && resolvePrReference(reference, context).kind !== "unknown" ? text : null
+}
+
 export type Resolution =
   | { kind: "open"; owner: string; repo: string; number: number }
   | { kind: "ask"; number: number; repos: readonly KnownRepo[] }

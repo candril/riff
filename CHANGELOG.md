@@ -12,6 +12,7 @@ release, so write it before tagging.
 - `riff` with nothing to review, or `riff --open`, asks for a PR: paste a link, or type `123`,
   `repo#123`, `repo/123` or `owner/repo#123`. Outside a repository an id asks which of the
   repositories in presto's config or `storage.repos` was meant, showing the PR in each.
+  A reference on the clipboard is already in the field.
 
 ### Changed
 

@@ -29,6 +29,8 @@ interface Pick {
 export interface OpenPrDeps {
   current: RepoName | null
   known: readonly KnownRepo[]
+  /** The field starts with a reference off the clipboard, which a first edit replaces. */
+  seeded?: boolean
   lookup: (repos: readonly RepoName[], number: number) => Promise<PrLookups>
   onChoose: (choice: OpenPrChoice) => void
 }
@@ -40,6 +42,7 @@ export function createOpenPrState(deps: OpenPrDeps) {
   const [checking, setChecking] = createSignal<string | null>(null)
   const [pick, setPick] = createSignal<Pick | null>(null)
   const [selected, setSelected] = createSignal<string | null>(null)
+  const [fromClipboard, setFromClipboard] = createSignal(deps.seeded === true)
 
   // Bumped by every submit and by leaving, so a lookup nobody waits for any more lands nowhere.
   let request = 0
@@ -94,9 +97,15 @@ export function createOpenPrState(deps: OpenPrDeps) {
     checking,
     pick,
     highlight,
+    fromClipboard,
     /** What the field holds changed, so an error about what it held no longer applies. */
     edited(): void {
       setError(null)
+      setFromClipboard(false)
+    },
+    /** The reader moved the cursor in it, so it is theirs to edit rather than to replace. */
+    adopted(): void {
+      setFromClipboard(false)
     },
     submit(text: string): void {
       if (!text.trim()) return

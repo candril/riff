@@ -25,6 +25,7 @@ export interface OpenPrModelInput {
   hasLocalReview: boolean
   error: string | null
   checking: string | null
+  fromClipboard: boolean
   pick: { number: number; rows: readonly PickRow[]; looking: boolean } | null
   highlight: number
   width: number
@@ -64,7 +65,9 @@ export function openPrModel(input: OpenPrModelInput): OpenPrModel {
       ? { text: truncate(input.error, input.width), tone: "error" }
       : input.checking
         ? { text: truncate(input.checking, input.width), tone: "dim" }
-        : null,
+        : input.fromClipboard
+          ? { text: "From the clipboard. Typing replaces it", tone: "dim" }
+          : null,
     rows: null,
     hint: `Enter open   Esc ${input.hasLocalReview ? "review this checkout" : "quit"}`,
   }

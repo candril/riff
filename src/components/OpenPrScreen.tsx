@@ -14,8 +14,9 @@ export function OpenPrScreen(props: {
   width: number
   version: string
   nothingHere: string | null
+  initialText: string
   inputRef: (input: InputRenderable) => void
-  onInput: () => void
+  onInput: (value: string) => void
   onSubmit: () => void
 }) {
   return (
@@ -31,6 +32,7 @@ export function OpenPrScreen(props: {
         <box visible={props.model.rows === null} height={1} flexDirection="row" paddingLeft={1} paddingRight={1} backgroundColor={theme.surface0}>
           <input
             ref={props.inputRef}
+            value={props.initialText}
             flexGrow={1}
             placeholder={FIELD_PLACEHOLDER}
             backgroundColor="transparent"
@@ -39,7 +41,7 @@ export function OpenPrScreen(props: {
             focusedTextColor={theme.text}
             placeholderColor={theme.overlay0}
             cursorColor={theme.yellow}
-            onInput={() => props.onInput()}
+            onInput={(value: string) => props.onInput(value)}
             onSubmit={() => props.onSubmit()}
           />
         </box>

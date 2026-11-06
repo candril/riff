@@ -12,14 +12,31 @@ export interface OpenPrScreenDeps extends Omit<OpenPrDeps, "onChoose"> {
   hasLocalReview: boolean
   /** Why the screen is showing, when that is news: `--open` needs no explaining. */
   nothingHere: string | null
+  /** A reference found on the clipboard, to start the field with. */
+  clipboard: string | null
 }
+
+const KEEPS_THE_SEED = new Set(["left", "right", "home", "end"])
+
 
 /** The whole screen as a tree, with its keys, for a renderer someone else owns and destroys. */
 export function openPrTree(renderer: CliRenderer, deps: OpenPrScreenDeps, settle: (outcome: OpenPrOutcome) => void) {
-  const state = createOpenPrState({ ...deps, onChoose: (choice) => settle({ kind: "pr", choice }) })
+  const state = createOpenPrState({ ...deps, seeded: deps.clipboard !== null, onChoose: (choice) => settle({ kind: "pr", choice }) })
   let field: InputRenderable | undefined
 
+  // Ahead of the field, which handles the same event next and types into what is left.
+  const replaceSeed = () => {
+    if (!field || !state.fromClipboard() || state.pick()) return
+    field.value = ""
+    state.edited()
+  }
+  renderer.keyInput.on("paste", replaceSeed)
+
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
+    if (key.name !== "escape" && key.name !== "return") {
+      if (KEEPS_THE_SEED.has(key.name) || key.ctrl || key.meta) state.adopted()
+      else replaceSeed()
+    }
     if (key.name === "escape") {
       if (!state.back()) settle({ kind: deps.hasLocalReview ? "local" : "quit" })
       return
@@ -45,11 +62,13 @@ export function openPrTree(renderer: CliRenderer, deps: OpenPrScreenDeps, settle
         width={width()}
         version={version}
         nothingHere={deps.nothingHere}
+        initialText={deps.clipboard ?? ""}
         model={openPrModel({
           current: deps.current,
           hasLocalReview: deps.hasLocalReview,
           error: state.error(),
           checking: state.checking(),
+          fromClipboard: state.fromClipboard(),
           pick: state.pick(),
           highlight: state.highlight(),
           width: width(),
@@ -58,7 +77,10 @@ export function openPrTree(renderer: CliRenderer, deps: OpenPrScreenDeps, settle
           field = node
           node.focus()
         }}
-        onInput={state.edited}
+        // Seeding the field reports itself as input too, and that is no edit.
+        onInput={(value) => {
+          if (value !== deps.clipboard) state.edited()
+        }}
         onSubmit={() => state.submit(field?.value ?? "")}
       />
     )

@@ -45,6 +45,13 @@ tracks, with the PR of that number in each so the right one can be recognised.
   (`~/.config/presto/config.toml`), disabled ones included since they can still
   be opened, then riff's `[storage.repos]` keys. A missing or malformed presto
   config contributes none. The current repository counts when matching a name.
+- **The clipboard goes in first.** Text on the clipboard that the field could
+  open starts in it, with a note saying where it came from, so `Enter` is all a
+  copied link needs. That means one line of at most 300 characters that reads as
+  a form above and resolves: a bare `7` counts, while `docs/12` does not unless
+  `docs` is a known repository. Nothing is looked up or opened before `Enter`.
+  Typing, a paste or `Backspace` replaces it whole; moving the cursor keeps it to
+  edit. A failed or slow read leaves the field empty.
 - **Asking which repository.** An id outside a repository, or a name more than
   one known repository answers to, lists the candidates at once and asks. One
   query looks the number up in all of them: a row gains the PR's title, state
@@ -75,6 +82,8 @@ tracks, with the PR of that number in each so the right one can be recognised.
 
 - `src/features/open-pr/reference.ts`: the field's text to a reference, and a
   reference to a repository or the question. Pure.
+- `src/utils/clipboard.ts`: `readClipboard`, `pbpaste` or `xclip` with a 500 ms
+  limit, since it runs on the startup path.
 - `src/features/open-pr/known-repos.ts`: presto's config and `storage.repos` as
   one list.
 - `src/features/open-pr/state.ts`: the screen's state factory (ADR-003).

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { KnownRepo } from "./known-repos"
-import { parsePrReference, resolvePrReference } from "./reference"
+import { clipboardReference, parsePrReference, resolvePrReference } from "./reference"
 
 describe("parsePrReference", () => {
   const full = { kind: "full", owner: "acme", repo: "web.app", number: 12 }
@@ -80,5 +80,36 @@ describe("resolvePrReference", () => {
       kind: "unknown",
       message: "No known repo is called nope, so paste owner/nope#5",
     })
+  })
+})
+
+describe("clipboardReference", () => {
+  const context = { current: null, known: [{ owner: "acme", repo: "isomorph", alias: "ISO" }] }
+
+  test.each([
+    ["https://github.com/acme/web/pull/7/files", "https://github.com/acme/web/pull/7/files"],
+    ["  acme/web#7\n", "acme/web#7"],
+    ["ISO#7", "ISO#7"],
+    ["isomorph/7", "isomorph/7"],
+    ["#7", "#7"],
+    ["7", "7"],
+  ])("takes %j", (clipboard, expected) => {
+    expect(clipboardReference(clipboard, context)).toBe(expected)
+  })
+
+  test.each([
+    [null],
+    [""],
+    ["some words"],
+    ["docs/12"],
+    ["https://github.com/acme/web/issues/7"],
+    ["see\nhttps://github.com/acme/web/pull/7"],
+    [`${"long ".repeat(70)}https://github.com/acme/web/pull/7`],
+  ])("leaves %j", (clipboard) => {
+    expect(clipboardReference(clipboard, context)).toBeNull()
+  })
+
+  test("an id with nowhere to look is not offered", () => {
+    expect(clipboardReference("7", { current: null, known: [] })).toBeNull()
   })
 })

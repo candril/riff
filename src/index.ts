@@ -13,6 +13,8 @@ import { getLocalDiff } from "./providers/local"
 import { lookupPrs } from "./providers/github/lookups"
 import { getCurrentRepoRef } from "./providers/repo"
 import { loadKnownRepos } from "./features/open-pr/known-repos"
+import { clipboardReference } from "./features/open-pr/reference"
+import { readClipboard } from "./utils/clipboard"
 import { runOpenPrScreen } from "./app/open-pr"
 
 export { parseArgs, probePath, type CliArgs, type PathKind } from "./cli/args"
@@ -341,10 +343,12 @@ async function askForPr(args: CliArgs): Promise<"continue" | "quit"> {
   const local = await readLocalChanges()
   if (local === "some" && !args.open) return "continue"
 
-  const [current, repoRoot] = await Promise.all([getCurrentRepoRef(), findRepoRoot()])
+  const [current, repoRoot, clipboard] = await Promise.all([getCurrentRepoRef(), findRepoRoot(), readClipboard()])
+  const known = loadKnownRepos()
   const outcome = await runOpenPrScreen({
     current,
-    known: loadKnownRepos(),
+    known,
+    clipboard: clipboardReference(clipboard, { current, known }),
     lookup: lookupPrs,
     hasLocalReview: local !== "unreadable",
     nothingHere: local === "some" ? null : repoRoot ? "No changes to review here" : "Not in a repository",
