@@ -29,15 +29,18 @@ tracks, with the PR of that number in each so the right one can be recognised.
 
 - **When it shows.** `riff` with no target, on a terminal, when the working
   copy has no changes or there is no repository to read. `riff --open` (`-o`)
-  shows it regardless. A target, `--demo` or a non-terminal stdin or stdout
-  never shows it.
+  shows it regardless. `riff 123` or `riff pr` where no GitHub repository can be
+  detected shows it too: the id goes straight to the question, and `riff pr`
+  starts at the field since there is no branch to ask about. Any other target,
+  `--demo` or a non-terminal stdin or stdout never shows it, so scripts and
+  `riff comments` still get the error.
 - **The forms the field reads.** Surrounding whitespace, quotes and angle
   brackets are ignored.
 
   | Typed | Means |
   |---|---|
   | `123`, `#123` | That PR in the current repository, or else ask |
-  | `repo#123`, `repo/123` | `repo` by name or presto alias, among the known repositories |
+  | `repo#123`, `repo/123` | `repo` by name or presto alias, among the known repositories; see below where that is not exact |
   | `owner/repo#123`, `owner/repo/123`, `owner/repo/pull/123`, `gh:owner/repo#123` | That PR |
   | `https://github.com/owner/repo/pull/123/files` and the like | That PR, whatever follows the number |
 
@@ -48,8 +51,8 @@ tracks, with the PR of that number in each so the right one can be recognised.
 - **The clipboard goes in first.** Text on the clipboard that the field could
   open starts in it, with a note saying where it came from, so `Enter` is all a
   copied link needs. That means one line of at most 300 characters that reads as
-  a form above and resolves: a bare `7` counts, while `docs/12` does not unless
-  `docs` is a known repository. Nothing is looked up or opened before `Enter`.
+  a form above and resolves: a bare `7` counts, while `docs/12` does not unless a
+  known repository answers to exactly `docs`. Nothing is looked up or opened before `Enter`.
   Typing, a paste or `Backspace` replaces it whole; moving the cursor keeps it to
   edit. A failed or slow read leaves the field empty.
 - **Asking which repository.** An id outside a repository, or a name more than
@@ -58,6 +61,10 @@ tracks, with the PR of that number in each so the right one can be recognised.
   and author, and a repository with no such PR leaves the list. If the lookup
   fails the rows stay, unlabelled. If no repository has the PR, the field comes
   back with that said.
+- **A name that fits no repository exactly** is never opened on a guess. Part of
+  a name or alias lists the repositories it fits, even if that is one. A name
+  nothing fits lists every known repository, saying the name was not found, and
+  the lookup narrows that to the ones with the PR.
 - **A PR that does not exist stays on the screen.** Before leaving, a single
   repository's PR is looked up too; not finding it, or failing to ask, is said
   under the field with the text left in it to correct.

@@ -14,6 +14,8 @@ export interface OpenPrScreenDeps extends Omit<OpenPrDeps, "onChoose"> {
   nothingHere: string | null
   /** A reference found on the clipboard, to start the field with. */
   clipboard: string | null
+  /** What was already asked for on the command line: the field starts with it, submitted. */
+  typed?: string
 }
 
 const KEEPS_THE_SEED = new Set(["left", "right", "home", "end"])
@@ -23,6 +25,8 @@ const KEEPS_THE_SEED = new Set(["left", "right", "home", "end"])
 export function openPrTree(renderer: CliRenderer, deps: OpenPrScreenDeps, settle: (outcome: OpenPrOutcome) => void) {
   const state = createOpenPrState({ ...deps, seeded: deps.clipboard !== null, onChoose: (choice) => settle({ kind: "pr", choice }) })
   let field: InputRenderable | undefined
+  const initialText = deps.typed ?? deps.clipboard ?? ""
+  if (deps.typed) state.submit(deps.typed)
 
   // Ahead of the field, which handles the same event next and types into what is left.
   const replaceSeed = () => {
@@ -62,7 +66,7 @@ export function openPrTree(renderer: CliRenderer, deps: OpenPrScreenDeps, settle
         width={width()}
         version={version}
         nothingHere={deps.nothingHere}
-        initialText={deps.clipboard ?? ""}
+        initialText={initialText}
         model={openPrModel({
           current: deps.current,
           hasLocalReview: deps.hasLocalReview,
@@ -79,7 +83,7 @@ export function openPrTree(renderer: CliRenderer, deps: OpenPrScreenDeps, settle
         }}
         // Seeding the field reports itself as input too, and that is no edit.
         onInput={(value) => {
-          if (value !== deps.clipboard) state.edited()
+          if (value !== initialText) state.edited()
         }}
         onSubmit={() => state.submit(field?.value ?? "")}
       />

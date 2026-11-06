@@ -24,6 +24,7 @@ interface Pick {
   number: number
   rows: readonly PickRow[]
   looking: boolean
+  note?: string
 }
 
 export interface OpenPrDeps {
@@ -69,15 +70,15 @@ export function createOpenPrState(deps: OpenPrDeps) {
     else deps.onChoose(choice)
   }
 
-  async function ask(number: number, repos: readonly KnownRepo[]): Promise<void> {
+  async function ask(number: number, repos: readonly KnownRepo[], note?: string): Promise<void> {
     const mine = ++request
     setError(null)
     setSelected(null)
-    setPick({ number, rows: repos.map((repo) => ({ repo })), looking: true })
+    setPick({ number, note, rows: repos.map((repo) => ({ repo })), looking: true })
     const lookups = await deps.lookup(repos, number).catch(() => null)
     if (mine !== request) return
     if (!lookups) {
-      setPick({ number, rows: repos.map((repo) => ({ repo })), looking: false })
+      setPick({ number, note, rows: repos.map((repo) => ({ repo })), looking: false })
       return
     }
     const found = repos.flatMap((repo) => {
@@ -89,7 +90,7 @@ export function createOpenPrState(deps: OpenPrDeps) {
       setError(`None of the known repos has a #${number}, so paste owner/repo#${number}`)
       return
     }
-    setPick({ number, rows: found, looking: false })
+    setPick({ number, note, rows: found, looking: false })
   }
 
   return {
@@ -116,7 +117,7 @@ export function createOpenPrState(deps: OpenPrDeps) {
       }
       const resolved = resolvePrReference(reference, deps)
       if (resolved.kind === "unknown") setError(resolved.message)
-      else if (resolved.kind === "ask") void ask(resolved.number, resolved.repos)
+      else if (resolved.kind === "ask") void ask(resolved.number, resolved.repos, resolved.note)
       else void open({ owner: resolved.owner, repo: resolved.repo, number: resolved.number })
     },
     move(delta: number): void {

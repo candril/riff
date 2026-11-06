@@ -244,3 +244,32 @@ describe("a reference on the clipboard", () => {
     expect(await frame()).not.toContain("github.com")
   })
 })
+
+test("an id from the command line goes straight to the question, and Esc from there returns to the field holding it", async () => {
+  const { frame, escape, outcomes } = await mount({ typed: "12" })
+  const drawn = await frame()
+  expect(drawn).toContain("Which repo is #12 in?")
+  expect(drawn).toContain("Fix the cart")
+  await escape()
+  const back = await frame()
+  expect(back).toContain("Open a PR")
+  expect(back).toContain("12")
+  expect(outcomes).toEqual([])
+})
+
+test("a name nothing fits lists the repos that have the PR, saying the name was not found", async () => {
+  const { typeAndEnter } = await mount()
+  const drawn = await typeAndEnter("isomorf#12")
+  expect(drawn).toContain("No known repo is called isomorf")
+  expect(drawn).toContain("acme/isomorph")
+  expect(drawn).toContain("me/lane")
+})
+
+test("part of a name asks rather than opening, even when one repo fits", async () => {
+  const { typeAndEnter, outcomes } = await mount()
+  const drawn = await typeAndEnter("isom#12")
+  expect(drawn).toContain("Which repo is #12 in?")
+  expect(drawn).toContain("acme/isomorph")
+  expect(drawn).not.toContain("me/lane")
+  expect(outcomes).toEqual([])
+})

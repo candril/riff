@@ -26,7 +26,7 @@ export interface OpenPrModelInput {
   error: string | null
   checking: string | null
   fromClipboard: boolean
-  pick: { number: number; rows: readonly PickRow[]; looking: boolean } | null
+  pick: { number: number; rows: readonly PickRow[]; looking: boolean; note?: string } | null
   highlight: number
   width: number
 }
@@ -50,7 +50,7 @@ export function openPrModel(input: OpenPrModelInput): OpenPrModel {
     const room = input.width - Math.min(repoWidth, Math.floor(input.width / 2)) - 4
     return {
       heading: `Which repo is #${pick.number} in?`,
-      message: null,
+      message: pick.note ? { text: truncate(pick.note, input.width), tone: "dim" } : null,
       rows: pick.rows.map((row, i) => ({
         repo: truncate(`${row.repo.owner}/${row.repo.repo}`, Math.floor(input.width / 2)).padEnd(Math.min(repoWidth, Math.floor(input.width / 2))),
         detail: truncate(detailOf(row, pick.looking), Math.max(room, 0)),

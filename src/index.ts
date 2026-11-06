@@ -15,7 +15,7 @@ import { getCurrentRepoRef } from "./providers/repo"
 import { loadKnownRepos } from "./features/open-pr/known-repos"
 import { clipboardReference } from "./features/open-pr/reference"
 import { readClipboard } from "./utils/clipboard"
-import { runOpenPrScreen } from "./app/open-pr"
+import { runOpenPrScreen, type OpenPrScreenDeps } from "./app/open-pr"
 
 export { parseArgs, probePath, type CliArgs, type PathKind } from "./cli/args"
 import * as readline from "readline"
@@ -46,7 +46,7 @@ const HELP_TEXT = `
 \x1b[1mTARGETS\x1b[0m
     \x1b[36m(no argument)\x1b[0m              Review uncommitted changes; with none, or outside a repo, ask for a PR to open
     \x1b[36mpr\x1b[0m                        Review PR for current branch/bookmark
-    \x1b[36m<pr-number>\x1b[0m               Review GitHub PR in current repo (e.g., 123 or #123)
+    \x1b[36m<pr-number>\x1b[0m               Review GitHub PR in current repo (e.g., 123 or #123); with no repo detected, ask which
     \x1b[36m<revision>\x1b[0m                Review local commits (e.g., HEAD~3, main..HEAD, @-)
     \x1b[36m<workspace>@\x1b[0m              Review another jj workspace's changes since trunk, as plain riff does yours
     \x1b[36m<path>\x1b[0m                    Read a file or directory as files (e.g., ., src/, src/app.ts)
@@ -333,26 +333,42 @@ async function readLocalChanges(): Promise<"some" | "none" | "unreadable"> {
 }
 
 /**
- * The screen for a `riff` with nothing to review (spec 112). A PR chosen there
- * goes into `args`, so the rest of startup is what `riff gh:owner/repo#123` runs.
+ * The screen for a `riff` with nothing to review, or a PR with no repository to
+ * look in (spec 112). A PR chosen there goes into `args`, so the rest of startup
+ * is what `riff gh:owner/repo#123` runs.
  */
 async function askForPr(args: CliArgs): Promise<"continue" | "quit"> {
-  const bare = args.type === "local" && !args.target && !args.demo
-  if (!bare || !process.stdin.isTTY || !process.stdout.isTTY) return "continue"
+  if (args.demo || !process.stdin.isTTY || !process.stdout.isTTY) return "continue"
 
+  if (args.type === "pr") {
+    if (args.owner || (await getCurrentRepoRef())) return "continue"
+    return runScreen(args, {
+      current: null,
+      hasLocalReview: false,
+      nothingHere: (await findRepoRoot()) ? "No GitHub repo detected here" : "Not in a repository",
+      clipboard: null,
+      typed: args.prNumber === undefined ? undefined : String(args.prNumber),
+    })
+  }
+
+  if (args.type !== "local" || args.target) return "continue"
   const local = await readLocalChanges()
   if (local === "some" && !args.open) return "continue"
 
   const [current, repoRoot, clipboard] = await Promise.all([getCurrentRepoRef(), findRepoRoot(), readClipboard()])
-  const known = loadKnownRepos()
-  const outcome = await runOpenPrScreen({
+  return runScreen(args, {
     current,
-    known,
-    clipboard: clipboardReference(clipboard, { current, known }),
-    lookup: lookupPrs,
     hasLocalReview: local !== "unreadable",
     nothingHere: local === "some" ? null : repoRoot ? "No changes to review here" : "Not in a repository",
+    clipboard: clipboardReference(clipboard, { current, known: loadKnownRepos() }),
   })
+}
+
+async function runScreen(
+  args: CliArgs,
+  deps: Omit<OpenPrScreenDeps, "known" | "lookup">
+): Promise<"continue" | "quit"> {
+  const outcome = await runOpenPrScreen({ ...deps, known: loadKnownRepos(), lookup: lookupPrs })
   if (outcome.kind === "quit") return "quit"
   if (outcome.kind === "pr") {
     args.type = "pr"

@@ -47,7 +47,7 @@ describe("resolvePrReference", () => {
   test("an id with nowhere to look says what to paste", () => {
     expect(resolvePrReference({ kind: "number", number: 5 }, { current: null, known: [] })).toEqual({
       kind: "unknown",
-      message: "Not in a repository, so paste owner/repo#5",
+      message: "No GitHub repo detected here, so paste owner/repo#5",
     })
   })
 
@@ -75,8 +75,30 @@ describe("resolvePrReference", () => {
     expect(resolvePrReference({ kind: "named", repo: "lane", number: 5 }, { current: lane, known })).toEqual({ kind: "open", ...lane, number: 5 })
   })
 
-  test("a name nothing answers to says what to paste", () => {
+  test("part of a name or alias suggests what it fits, even when that is one repo", () => {
+    expect(resolvePrReference({ kind: "named", repo: "iso", number: 5 }, { current: null, known: [fork, lane] })).toEqual({
+      kind: "ask",
+      number: 5,
+      repos: [fork],
+    })
+    expect(resolvePrReference({ kind: "named", repo: "an", number: 5 }, { current: null, known })).toEqual({
+      kind: "ask",
+      number: 5,
+      repos: [lane],
+    })
+  })
+
+  test("a name nothing fits offers every known repo, and says so", () => {
     expect(resolvePrReference({ kind: "named", repo: "nope", number: 5 }, { current: null, known })).toEqual({
+      kind: "ask",
+      number: 5,
+      repos: known,
+      note: "No known repo is called nope",
+    })
+  })
+
+  test("a name with no known repos at all says what to paste", () => {
+    expect(resolvePrReference({ kind: "named", repo: "nope", number: 5 }, { current: null, known: [] })).toEqual({
       kind: "unknown",
       message: "No known repo is called nope, so paste owner/nope#5",
     })
@@ -102,6 +124,8 @@ describe("clipboardReference", () => {
     [""],
     ["some words"],
     ["docs/12"],
+    ["iso/12x"],
+    ["isom/12"],
     ["https://github.com/acme/web/issues/7"],
     ["see\nhttps://github.com/acme/web/pull/7"],
     [`${"long ".repeat(70)}https://github.com/acme/web/pull/7`],
