@@ -58,6 +58,8 @@ async function mountPanel(props: Partial<ThreadPanelInput> = {}) {
         pickerRoom: null,
         mentionPicker: null,
         emojiPicker: null,
+        symbolPicker: null,
+        symbolCandidates: [],
         mentionCandidates: [],
         mentionSearchQuery: null,
         expandedThreadIds: new Set(),

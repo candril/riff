@@ -43,7 +43,7 @@ test("the composer's section lists the keys its input handler binds", () => {
     "Ctrl+y",
     "Ctrl+g",
     "Esc",
-    "@ / :",
+    "@ / : / `",
     "↑ ↓ / Ctrl+n/p",
     "Tab / Enter",
   ])

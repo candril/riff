@@ -1,12 +1,13 @@
 /**
- * What the thread panel's composer and its two pickers do with the keys
+ * What the thread panel's composer and its pickers do with the keys
  * `composer-keys.ts` binds (spec 039).
  */
 
 import { setInlineCommentInput } from "../../state"
 import { filterEmoji } from "../../utils/emoji"
 import { collectMentionCandidates } from "../../utils/mentions"
-import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
+import { composerSymbolCandidates } from "../../utils/diff-symbols"
+import { getFilteredMentionCandidates, symbolMatches } from "../../components/thread-panel-picker"
 import type { ComposerHandle } from "../../app/island-composer"
 import type { InputPicker } from "../../app/at-picker-keys"
 import { cancelComposing, submitInlineDraft, submitInlineEditDraft } from "./handlers"
@@ -143,6 +144,36 @@ export function mentionPicker(deps: ComposerKeyDeps): InputPicker {
       const username = open && found[Math.min(open.selectedIndex, found.length - 1)]
       if (!username) return
       acceptMention(deps, open.atOffset, username)
+    },
+  }
+}
+
+export function symbolPicker(deps: ComposerKeyDeps): InputPicker {
+  const picker = deps.composerPickers.symbol
+  const matches = () => symbolMatches(composerSymbolCandidates(deps.getState()), picker()?.query ?? "")
+  return {
+    // Not open with no match: nothing is drawn then, and a picker nobody can
+    // see must not keep Esc and the arrows from the composer (spec 114).
+    open: () => picker() !== null && matches().length > 0,
+    matches: () => matches().length,
+    close: () => {
+      deps.composerPickers.setSymbol(null)
+      deps.render()
+    },
+    move: (delta) => {
+      deps.composerPickers.moveSymbol(delta, matches().length)
+      deps.render()
+    },
+    accept: () => {
+      const open = picker()
+      const found = matches()
+      const chosen = open && found[Math.min(open.selectedIndex, found.length - 1)]
+      if (!chosen) return
+      const cursor = deps.composer.cursorOffset()
+      const end = deps.composer.value()[cursor] === "`" ? cursor + 1 : cursor
+      deps.composer.replaceRange(open.backtickOffset, end, `\`${chosen.item}\``)
+      deps.composerPickers.setSymbol(null)
+      deps.render()
     },
   }
 }

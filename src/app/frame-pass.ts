@@ -95,7 +95,7 @@ export interface FramePassContext {
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
   composer: Pick<ComposerHandle, "value">
-  composerPickers: Pick<ComposerPickersState, "mention" | "emoji">
+  composerPickers: Pick<ComposerPickersState, "mention" | "emoji" | "symbol">
   codePeek: Pick<CodePeekState, "id" | "close">
   chatColumn: Pick<ChatColumnState, "open" | "expanded">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
@@ -230,7 +230,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       commentDrafts: ctx.commentDrafts.drafts(),
       // The textarea's buffer goes with the renderer, and a toast's timer can still render after that.
       composerText: state.inlineCommentOverlay.mode !== "view" && !ctx.renderer.isDestroyed ? ctx.composer.value() : "",
-      composerPickers: { mention: ctx.composerPickers.mention(), emoji: ctx.composerPickers.emoji() },
+      composerPickers: { mention: ctx.composerPickers.mention(), emoji: ctx.composerPickers.emoji(), symbol: ctx.composerPickers.symbol() },
       codePeekId: ctx.codePeek.id(),
       commandKeys: ctx.getCommandKeys(),
     }

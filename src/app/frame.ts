@@ -22,7 +22,7 @@ import type { ActionMenuSnapshot } from "../features/action-menu/state"
 import type { LinePeekSnapshot } from "../features/line-peek/state"
 import type { BlamePeekSnapshot } from "../features/blame/peek-state"
 import type { ActionFocus } from "../actions/types"
-import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
+import type { EmojiPickerState, MentionPickerState, SymbolPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -102,7 +102,7 @@ export interface Frame {
   /** What the comment composer's textarea holds while it is open, read off it, for the rows the composer takes from the thread window. */
   composerText: string
   /** The comment composer's @mention and :emoji pickers, read off their factory, each null while it is closed. */
-  composerPickers: { mention: MentionPickerState | null; emoji: EmojiPickerState | null }
+  composerPickers: { mention: MentionPickerState | null; emoji: EmojiPickerState | null; symbol: SymbolPickerState | null }
   /** The comment whose stored hunk the thread panel's code peek shows (spec 060), read off its factory, or null. */
   codePeekId: string | null
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */

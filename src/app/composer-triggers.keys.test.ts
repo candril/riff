@@ -57,6 +57,43 @@ test("`:smil` opens the emoji picker, and Tab puts the emoji in its place", asyn
   expect(app.composerPickers.emoji()).toBeNull()
 })
 
+test("a backtick and a letter open the symbol picker, and Tab writes the whole span", async () => {
+  const { app, textarea } = await composing()
+  await app.setup.mockInput.typeText("use `hel")
+
+  expect(app.composerPickers.symbol()?.query).toBe("hel")
+  const frame = await app.frame()
+  expect(frame).toContain("`symbol")
+  expect(frame).toContain("hello")
+
+  app.setup.mockInput.pressTab()
+  await app.frame()
+  expect(textarea.plainText).toBe("use `hello`")
+  expect(app.composerPickers.symbol()).toBeNull()
+  expect(textarea.cursorOffset).toBe("use `hello`".length)
+})
+
+test("the closing backtick dismisses the symbol picker", async () => {
+  const { app } = await composing()
+  await app.setup.mockInput.typeText("use `hel")
+  expect(app.composerPickers.symbol()).not.toBeNull()
+
+  await app.setup.mockInput.typeText("`")
+  expect(app.composerPickers.symbol()).toBeNull()
+})
+
+test("accepting reuses a closing backtick already there", async () => {
+  const { app, textarea } = await composing()
+  await app.setup.mockInput.typeText("`hel`")
+  app.setup.mockInput.pressArrow("left")
+  await app.frame()
+  expect(app.composerPickers.symbol()?.query).toBe("hel")
+
+  app.setup.mockInput.pressTab()
+  await app.frame()
+  expect(textarea.plainText).toBe("`hello`")
+})
+
 test("`@da` opens the mention picker on a known login, and Tab completes it", async () => {
   const { app, textarea } = await composing()
   app.mentions.merge(["dana"])

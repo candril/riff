@@ -70,7 +70,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
     composerText: "",
-    composerPickers: { mention: null, emoji: null },
+    composerPickers: { mention: null, emoji: null, symbol: null },
     codePeekId: null,
     commandKeys: new Map(),
     actionFocus: { reactionTarget: null },

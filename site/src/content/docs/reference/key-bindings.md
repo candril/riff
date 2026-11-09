@@ -159,6 +159,7 @@ While **writing** a comment:
 | `Ctrl+y` | Insert a suggestion block for the lines the comment replaces |
 | `@` | Mention picker — `↑`/`↓` or `Ctrl+p`/`Ctrl+n`, `Tab`/`Enter` accepts |
 | `:` | Emoji picker, same keys — `:roc` → 🚀 |
+| `` ` `` | Inside a code span, a picker over the diff's symbols and file paths, same keys |
 | `Esc` | Cancel |
 
 `Ctrl+Enter` also posts, in the terminals that can send it. `Ctrl+p` is the one that works

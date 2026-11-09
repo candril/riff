@@ -13,6 +13,8 @@ release, so write it before tagging.
   `repo#123`, `repo/123` or `owner/repo#123`. Outside a repository an id asks which of the
   repositories in presto's config or `storage.repos` was meant, showing the PR in each.
   A reference on the clipboard is already in the field.
+- A backtick and a letter or two in the comment composer offers the names on the diff's changed
+  lines and its file paths, closest to the comment first. `Tab` writes the whole code span.
 
 ### Changed
 

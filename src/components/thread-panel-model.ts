@@ -1,6 +1,6 @@
 import type { Comment, ReactionSummary } from "../types"
 import type { InlineCommentOverlayMode } from "../state"
-import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
+import type { EmojiPickerState, MentionPickerState, SymbolPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { colors, theme } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
@@ -64,6 +64,10 @@ export interface ThreadPanelInput {
   mentionCandidates: readonly string[]
   /** Fragment currently being looked up on GitHub, or null when idle. */
   mentionSearchQuery: string | null
+  /** The name being typed in an open code span (spec 114). */
+  symbolPicker: SymbolPickerState | null
+  /** The diff's names, filtered against `symbolPicker.query`; empty with no picker open. */
+  symbolCandidates: readonly string[]
   /** Root comment ids the user has expanded (`za`/Enter). Resolved
    *  threads expand to show body + replies; outdated threads expand to
    *  reveal the stored diff hunk. */

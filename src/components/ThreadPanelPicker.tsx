@@ -6,7 +6,7 @@ import type { ThreadPanelPicker } from "./thread-panel-model"
 export type Picker = NonNullable<ThreadPanelPicker>
 type PickerOf<K extends Picker["kind"]> = Extract<Picker, { kind: K }>
 
-/** The composer's open `@mention` or `:emoji` session, as the list it is choosing from. */
+/** The composer's open `@mention`, `:emoji` or code span session, as the list it is choosing from. */
 export function ThreadPanelPickerView(props: { picker: Picker }) {
   return (
     <Switch>
@@ -37,6 +37,9 @@ export function ThreadPanelPickerView(props: { picker: Picker }) {
       </Match>
       <Match when={props.picker.kind === "mention" && props.picker}>
         {(picker: () => PickerOf<"mention">) => <AtPickerView picker={picker().picker} />}
+      </Match>
+      <Match when={props.picker.kind === "symbol" && props.picker}>
+        {(picker: () => PickerOf<"symbol">) => <AtPickerView picker={picker().picker} />}
       </Match>
     </Switch>
   )

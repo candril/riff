@@ -1,6 +1,6 @@
 /**
- * The comment composer's `@mention` and `:emoji` pickers (spec 039, spec
- * 082): the trigger being typed and the match picked in its list. They are
+ * The comment composer's `@mention`, `:emoji` and code span pickers (spec
+ * 039, 082, 114): the trigger being typed and the match picked in its list. They are
  * a sub-modal of the composer, not review state, so the feature owns them
  * rather than AppState (spec 100, M6; ADR-003). Besides the reader's Esc
  * and an accepted match, these paths clear both: cancelling, closing or
@@ -30,15 +30,24 @@ export interface EmojiPickerState {
   colonOffset: number
 }
 
+/** A name being typed in an open code span, and where its backtick is (spec 114). */
+export interface SymbolPickerState {
+  query: string
+  selectedIndex: number
+  backtickOffset: number
+}
+
 export type ComposerPickersState = ReturnType<typeof createComposerPickersState>
 
 export function createComposerPickersState() {
   const [mention, setMentionSignal] = createSignal<MentionPickerState | null>(null)
   const [emoji, setEmojiSignal] = createSignal<EmojiPickerState | null>(null)
+  const [symbol, setSymbolSignal] = createSignal<SymbolPickerState | null>(null)
 
   return {
     mention,
     emoji,
+    symbol,
     /**
      * The selection survives a keystroke that leaves the trigger alone, or
      * the highlighted entry would snap back to the top as you type.
@@ -61,6 +70,15 @@ export function createComposerPickersState() {
       if (prev && prev.query === trigger.query && prev.colonOffset === trigger.colonOffset) return
       setEmojiSignal({ query: trigger.query, colonOffset: trigger.colonOffset, selectedIndex: 0 })
     },
+    setSymbol(trigger: { query: string; backtickOffset: number } | null) {
+      if (trigger === null) {
+        if (symbol() !== null) setSymbolSignal(null)
+        return
+      }
+      const prev = symbol()
+      if (prev && prev.query === trigger.query && prev.backtickOffset === trigger.backtickOffset) return
+      setSymbolSignal({ query: trigger.query, backtickOffset: trigger.backtickOffset, selectedIndex: 0 })
+    },
     /** The caller passes the candidate count, so the list is not derived twice. */
     moveMention(delta: number, count: number) {
       const picker = mention()
@@ -74,9 +92,16 @@ export function createComposerPickersState() {
       const next = wrapped(picker.selectedIndex + delta, count)
       if (next !== picker.selectedIndex) setEmojiSignal({ ...picker, selectedIndex: next })
     },
+    moveSymbol(delta: number, count: number) {
+      const picker = symbol()
+      if (!picker || count === 0) return
+      const next = wrapped(picker.selectedIndex + delta, count)
+      if (next !== picker.selectedIndex) setSymbolSignal({ ...picker, selectedIndex: next })
+    },
     clear() {
       if (mention() !== null) setMentionSignal(null)
       if (emoji() !== null) setEmojiSignal(null)
+      if (symbol() !== null) setSymbolSignal(null)
     },
   }
 }

@@ -137,6 +137,60 @@ test("the emoji picker shows its matches as rows under the composer", async () =
   expect(frame).toContain("Tab/⏎ accept")
 })
 
+test("the symbol picker: Esc closes only the picker", async () => {
+  const opened = await composer()
+  await opened.app.setup.mockInput.typeText("`hel")
+  send(opened.app, "\x1b")
+
+  expect(opened.app.composerPickers.symbol()).toBeNull()
+  expect(overlay(opened.app).mode).toBe("compose")
+  expect(opened.textarea.plainText).toBe("`hel")
+  expect(opened.settled).toEqual([])
+})
+
+test("the symbol picker: Enter accepts instead of saving", async () => {
+  const opened = await composer()
+  await opened.app.setup.mockInput.typeText("`hel")
+  send(opened.app, "\r")
+  await opened.app.frame()
+
+  expect(opened.textarea.plainText).toBe("`hello`")
+  expect(overlay(opened.app).mode).toBe("compose")
+  expect(opened.app.ctx.getState().comments).toEqual([])
+})
+
+test("a name the diff does not have draws no picker, and leaves Enter, Tab and Esc to the composer", async () => {
+  const unmatched = "rename to `zzzq"
+  const opened = await composer()
+  await opened.app.setup.mockInput.typeText(unmatched)
+  expect(opened.app.composerPickers.symbol()?.query).toBe("zzzq")
+  expect(await opened.app.frame()).not.toContain("`symbol")
+  expect(send(opened.app, "\t").defaultPrevented).toBe(false)
+
+  send(opened.app, "\x1b")
+  expect(opened.settled).toEqual(["dropped"])
+})
+
+test("a name the diff does not have: Enter saves the comment", async () => {
+  const unmatched = "rename to `zzzq"
+  const opened = await composer()
+  await opened.app.setup.mockInput.typeText(unmatched)
+  send(opened.app, "\r")
+
+  expect(opened.app.ctx.getState().comments.map((c) => c.body)).toEqual([unmatched])
+  expect(opened.settled).toEqual(["saved"])
+})
+
+test("inside a fence a backtick opens no symbol picker", async () => {
+  const opened = await composer()
+  opened.textarea.setText("```ts\n")
+  opened.textarea.cursorOffset = 6
+  await opened.app.setup.mockInput.typeText("`hel")
+
+  expect(opened.textarea.plainText).toBe("```ts\n`hel")
+  expect(opened.app.composerPickers.symbol()).toBeNull()
+})
+
 test("with both pickers set, the emoji picker takes the keys", async () => {
   const opened = await composer()
   const { app } = opened

@@ -23,6 +23,7 @@ import {
   insertSuggestion,
   mentionPicker,
   saveDraft,
+  symbolPicker,
 } from "./composer-actions"
 
 /** How the composer closed: the reviewer's own keys, which a proposal of the agent's is told about. */
@@ -96,12 +97,14 @@ export function registerComposerKeys(riffKeymap: RiffKeymap, deps: ComposerKeyDe
   // before the mention picker, so with both up it takes the keys.
   const pickerLayer = (name: string, picker: InputPicker) =>
     registerAtPickerLayer(riffKeymap, { prefix: `composer.${name}`, category: "Comments", holds: captured.holds, picker })
+  const unregisterSymbol = pickerLayer("symbol", symbolPicker(deps))
   const unregisterMention = pickerLayer("mention", mentionPicker(deps))
   const unregisterEmoji = pickerLayer("emoji", emojiPicker(deps))
 
   return () => {
     captured()
     unregisterComposer()
+    unregisterSymbol()
     unregisterMention()
     unregisterEmoji()
   }

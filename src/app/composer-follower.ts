@@ -1,5 +1,6 @@
 import { collectMentionCandidates, detectAtTrigger, MENTION_QUERY_CHARS } from "../utils/mentions"
 import { detectEmojiTrigger } from "../utils/emoji"
+import { detectSymbolTrigger } from "../utils/diff-symbols"
 import type { AppState } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import type { ComposerSession } from "./composer-session"
@@ -11,7 +12,7 @@ export interface ComposerFollowerDeps {
   getState: () => AppState
   render: () => void
   mentions: MentionsState
-  composerPickers: Pick<ComposerPickersState, "setMention" | "setEmoji">
+  composerPickers: Pick<ComposerPickersState, "setMention" | "setEmoji" | "setSymbol">
 }
 
 /**
@@ -31,6 +32,7 @@ export function createComposerFollower(
       composerPickers.setMention(trigger)
       // And `:shortcode`, which needs nothing fetched (spec 082).
       composerPickers.setEmoji(detectEmojiTrigger(text, cursorOffset))
+      composerPickers.setSymbol(detectSymbolTrigger(text, cursorOffset))
     }
     if (trigger) {
       // Widen the pool for fragments the cached roster can't cover

@@ -53,6 +53,8 @@ function model(input: Partial<ThreadPanelInput> = {}) {
     pickerRoom: null,
     mentionPicker: null,
     emojiPicker: null,
+    symbolPicker: null,
+    symbolCandidates: [],
     mentionCandidates: [],
     mentionSearchQuery: null,
     expandedThreadIds: new Set(),
@@ -337,6 +339,23 @@ describe("the thread panel's pickers", () => {
     const picker = model({ ...compose, emojiPicker: { query: "tada", selectedIndex: 9, colonOffset: 0 } }).picker
     expect(picker).toMatchObject({ kind: "emoji", selected: 0 })
     expect(picker?.kind === "emoji" && picker.rows[0]!.name).toBe("tada")
+  })
+
+  test("list the symbols a code span matches, the selection clamped to them", () => {
+    const picker = model({
+      ...compose,
+      symbolPicker: { query: "fan", selectedIndex: 4, backtickOffset: 0 },
+      symbolCandidates: ["other", "FancyViewController"],
+    }).picker
+    expect(picker).toMatchObject({ kind: "symbol", picker: { kind: "rows", title: "`symbol", selected: 0 } })
+    expect(picker?.kind === "symbol" && picker.picker.kind === "rows" && picker.picker.rows.map((row) => row.text)).toEqual([
+      "FancyViewController",
+    ])
+  })
+
+  test("draw no picker for a code span that matches nothing", () => {
+    const symbolPicker = { query: "zzzq", selectedIndex: 0, backtickOffset: 0 }
+    expect(model({ ...compose, symbolPicker, symbolCandidates: ["other"] }).picker).toBeNull()
   })
 
   test("list the names a mention matches, the selection clamped to them", () => {

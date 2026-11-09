@@ -1,12 +1,23 @@
-import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
+import type { EmojiPickerState, MentionPickerState, SymbolPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { theme } from "../theme"
 import { filterEmoji } from "../utils/emoji"
+import type { FuzzyHit } from "../utils/fuzzy"
 import { atRowSpans, clampSelection, filterAtCandidates, filterAtMatches, type AtPicker } from "./at-picker"
 import { displayAuthor } from "./display-author"
 import { pickerWindow } from "./picker-window"
 
 export function getFilteredMentionCandidates(candidates: readonly string[], query: string): string[] {
   return filterAtCandidates(candidates, query, (c) => c)
+}
+
+let lastSymbolMatches: { candidates: readonly string[]; query: string; hits: FuzzyHit<string>[] } | null = null
+
+/** One filter per keystroke: the keymap asks whether the picker is open several times for each key, over thousands of names. */
+export function symbolMatches(candidates: readonly string[], query: string): FuzzyHit<string>[] {
+  if (lastSymbolMatches?.candidates === candidates && lastSymbolMatches.query === query) return lastSymbolMatches.hits
+  const hits = filterAtMatches(candidates, query, (c) => c)
+  lastSymbolMatches = { candidates, query, hits }
+  return hits
 }
 
 /**
@@ -21,6 +32,7 @@ export type ThreadPanelPicker =
   | { kind: "emoji"; rows: EmojiRow[]; selected: number }
   | { kind: "emoji-empty"; text: string }
   | { kind: "mention"; picker: AtPicker }
+  | { kind: "symbol"; picker: AtPicker }
   | null
 
 /**
@@ -41,8 +53,10 @@ export function threadPanelPicker(input: {
   mentionPicker: MentionPickerState | null
   mentionCandidates: readonly string[]
   mentionSearchQuery: string | null
+  symbolPicker: SymbolPickerState | null
+  symbolCandidates: readonly string[]
 }): ThreadPanelPicker {
-  const { emojiPicker, mentionPicker } = input
+  const { emojiPicker, mentionPicker, symbolPicker } = input
   if (emojiPicker) {
     const matches = filterEmoji(emojiPicker.query)
     if (matches.length === 0) return { kind: "emoji-empty", text: `No emoji for :${emojiPicker.query}` }
@@ -50,7 +64,24 @@ export function threadPanelPicker(input: {
     return { kind: "emoji", rows, selected: clampSelection(emojiPicker.selectedIndex, matches.length) }
   }
   if (mentionPicker) return { kind: "mention", picker: mentionAtPicker(input, mentionPicker) }
+  if (symbolPicker) return symbolAtPicker(input.symbolCandidates, symbolPicker)
   return null
+}
+
+/** Null with no match: a name the diff does not have yet is what a rename comment types (spec 114). */
+function symbolAtPicker(candidates: readonly string[], symbolPicker: SymbolPickerState): ThreadPanelPicker {
+  const hits = symbolMatches(candidates, symbolPicker.query)
+  if (hits.length === 0) return null
+  return {
+    kind: "symbol",
+    picker: {
+      kind: "rows",
+      title: "`symbol",
+      accent: theme.teal,
+      rows: hits.map(({ item: name, positions }) => ({ text: name, spans: atRowSpans(name, name, positions) })),
+      selected: clampSelection(symbolPicker.selectedIndex, hits.length),
+    },
+  }
 }
 
 function mentionAtPicker(
@@ -99,7 +130,7 @@ export function fitPicker(picker: ThreadPanelPicker, room: number | null): Threa
     const { rows, selected } = windowed(picker.rows, picker.selected, room - EMOJI_CHROME_ROWS)
     return { ...picker, rows, selected }
   }
-  if (picker.kind === "mention" && picker.picker.kind === "rows") {
+  if ((picker.kind === "mention" || picker.kind === "symbol") && picker.picker.kind === "rows") {
     const { rows, selected } = windowed(picker.picker.rows, picker.picker.selected, room - MENTION_CHROME_ROWS)
     return { ...picker, picker: { ...picker.picker, rows, selected } }
   }

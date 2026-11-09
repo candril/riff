@@ -86,6 +86,8 @@ function panel(renderer: CliRenderer, width: number) {
     pickerRoom: null,
     mentionPicker: null,
     emojiPicker: null,
+    symbolPicker: null,
+    symbolCandidates: [],
     mentionCandidates: [],
     mentionSearchQuery: null,
     expandedThreadIds: new Set(),

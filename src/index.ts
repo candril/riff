@@ -170,6 +170,7 @@ const HELP_TEXT = `
     Ctrl-j                    Newline
     Ctrl-g                    Continue in $EDITOR
     @                         Mention picker
+    \`                         Picker over the diff's symbols, inside a code span
 
     \x1b[1mSearch & Folds\x1b[0m
     /  ?                      Search forward/backward

@@ -124,7 +124,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["Ctrl+y", "Suggestion block"],
       ["Ctrl+g", "Edit in $EDITOR"],
       ["Esc", "Cancel, keep the draft"],
-      ["@ / :", "Mention / emoji picker"],
+      ["@ / : / `", "Mention / emoji / diff symbol picker"],
       ["↑ ↓ / Ctrl+n/p", "Move in a picker"],
       ["Tab / Enter", "Pick in a picker"],
     ],

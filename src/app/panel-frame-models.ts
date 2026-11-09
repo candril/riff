@@ -6,6 +6,7 @@ import {
 import { unseenComments } from "../utils/visit"
 import { visibleFeedEvents, visibleFeedRows } from "../features/feed/rows"
 import { collectMentionCandidates } from "../utils/mentions"
+import { composerSymbolCandidates } from "../utils/diff-symbols"
 import { draftIn } from "../features/inline-comment-overlay/drafts-state"
 import type { ThreadPanelInput } from "../components/thread-panel-model"
 import { feedModel, type FeedModel } from "../components/feed-model"
@@ -42,6 +43,8 @@ export function threadPanelFrameInput({ state, chatOpen, chatExpanded, flashStat
     emojiPicker: composerPickers.emoji,
     mentionCandidates: collectMentionCandidates(state, mentions.pool),
     mentionSearchQuery: mentions.searching,
+    symbolPicker: composerPickers.symbol,
+    symbolCandidates: composerPickers.symbol ? composerSymbolCandidates(state) : [],
     expandedThreadIds: overlay.expandedThreadIds,
     unseenIds: new Set(unseenComments(state.comments, visit).map((comment) => comment.id)),
     filter: overlay.filter,

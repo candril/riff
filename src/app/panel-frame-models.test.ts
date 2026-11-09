@@ -49,7 +49,7 @@ function frame(
     now = NOW,
     mentions = { pool: [], searching: null },
     commentDrafts = new Map(),
-    composerPickers = { mention: null, emoji: null },
+    composerPickers = { mention: null, emoji: null, symbol: null },
     feed = { ...emptyFeed(), events: EVENTS },
     visit = null,
   }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"]; commentDrafts?: Frame["commentDrafts"]; composerPickers?: Frame["composerPickers"]; feed?: Frame["feed"]; visit?: Frame["visit"] } = {}
@@ -127,8 +127,13 @@ describe("threadPanelFrameInput", () => {
   test("hands the panel the composer's pickers as their factory had them when the frame was published", () => {
     const mention = { query: "da", atOffset: 4, selectedIndex: 1 }
     const emoji = { query: "smil", colonOffset: 9, selectedIndex: 0 }
-    const input = threadPanelFrameInput(frame(panelOpen(base()), { composerPickers: { mention, emoji } }))!
-    expect([input.mentionPicker, input.emojiPicker]).toEqual([mention, emoji])
+    const symbol = { query: "hel", backtickOffset: 2, selectedIndex: 0 }
+    const input = threadPanelFrameInput(frame(panelOpen(base()), { composerPickers: { mention, emoji, symbol } }))!
+    expect([input.mentionPicker, input.emojiPicker, input.symbolPicker]).toEqual([mention, emoji, symbol])
+  })
+
+  test("reads the diff's symbols only while the symbol picker is open", () => {
+    expect(threadPanelFrameInput(frame(panelOpen(base())))!.symbolCandidates).toEqual([])
   })
 
   test("counts the threads open-only hides while it is on, and is null for it while it is off", () => {
