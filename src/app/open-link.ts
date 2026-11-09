@@ -1,13 +1,8 @@
 import type { ToastState } from "../features/toast/state"
 import { copyToClipboard } from "../utils/clipboard"
+import { openUrl } from "../utils/open-url"
 
 export type OpenLink = (action: "open" | "copy", link: { label: string; url: string }) => void
-
-/** The platform's "open this the way the desktop would" command. */
-export function openerCommand(): string {
-  if (process.platform === "darwin") return "open"
-  return process.platform === "win32" ? "start" : "xdg-open"
-}
 
 /**
  * Open a link in the browser, or put it on the clipboard. riff never
@@ -20,7 +15,7 @@ export function createOpenLink(deps: {
 }): OpenLink {
   return (action, link) => {
     if (action === "open") {
-      Bun.spawn([openerCommand(), link.url], { stdout: "ignore", stderr: "ignore" })
+      openUrl(link.url)
       return
     }
     void copyToClipboard(link.url).then((copied) => {

@@ -7,7 +7,6 @@ import { commentsWithRows } from "./utils/notes"
 import { loadBranchPrReview } from "./features/branch-pr/review"
 import { fetchBehindBy, fetchIssueComment, fetchRunJobs, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
 import { updateIssueComment } from "./providers/github/mutations"
-import { openerCommand } from "./app/open-link"
 import { createPreviewDeploys } from "./features/preview-deploys"
 import { getPendingReview } from "./providers/github/review"
 import { fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
@@ -524,7 +523,7 @@ export async function createApp(options: AppOptions = {}) {
       if (prInfoPanel) refreshPreviews(prInfoPanel)
     },
     openUrl: (url) => {
-      Bun.spawn([openerCommand(), url], { stdout: "ignore", stderr: "ignore" })
+      openUrl(url)
     },
     api: { fetchComment: fetchIssueComment, updateComment: updateIssueComment, fetchRunJobs },
   })

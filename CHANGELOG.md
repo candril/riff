@@ -15,6 +15,8 @@ release, so write it before tagging.
   A reference on the clipboard is already in the field.
 - A backtick and a letter or two in the comment composer offers the names on the diff's changed
   lines and its file paths, closest to the comment first. `Tab` writes the whole code span.
+- `[browser] app` names the browser riff opens links in on macOS, for a desktop whose default
+  handler for web links is something else.
 
 ### Changed
 

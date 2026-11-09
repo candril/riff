@@ -1,5 +1,6 @@
 import type { AppKeyContext } from "./key-context"
-import { createOpenLink, openerCommand } from "./open-link"
+import { createOpenLink } from "./open-link"
+import { openUrl } from "../utils/open-url"
 import * as fileNavigation from "../features/file-navigation"
 import * as externalTools from "../features/external-tools"
 import type { FollowLinkContext } from "../features/follow-link"
@@ -57,7 +58,7 @@ export function followLinkContext(ctx: AppKeyContext): FollowLinkContext {
       })()
     },
     openUrl: (url) => {
-      Bun.spawn([openerCommand(), url], { stdout: "ignore", stderr: "ignore" })
+      openUrl(url)
     },
     copyUrl: (url) => openLink("copy", { label: "link", url }),
   }

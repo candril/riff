@@ -2,6 +2,8 @@
  * Hand a URL to the desktop's browser.
  */
 
+import { loadConfig } from "../config"
+
 const WEB = ["http:", "https:"]
 
 /** Refuse anything that isn't http(s) — a comment body is remote input, and
@@ -15,16 +17,18 @@ export function isOpenableUrl(url: string, schemes: readonly string[] = WEB): bo
   }
 }
 
+/** A named browser takes web links only: `riff-board:` belongs to its own app. */
+export function openCommand(url: string, browserApp?: string, platform: string = process.platform): string[] {
+  if (platform === "darwin") {
+    return browserApp && isOpenableUrl(url) ? ["open", "-a", browserApp, url] : ["open", url]
+  }
+  return platform === "win32" ? ["cmd", "/c", "start", "", url] : ["xdg-open", url]
+}
+
 export function openUrl(url: string, schemes: readonly string[] = WEB): boolean {
   if (!isOpenableUrl(url, schemes)) return false
-  const command =
-    process.platform === "darwin"
-      ? ["open", url]
-      : process.platform === "win32"
-        ? ["cmd", "/c", "start", "", url]
-        : ["xdg-open", url]
   try {
-    Bun.spawn(command, { stdout: "ignore", stderr: "ignore" })
+    Bun.spawn(openCommand(url, loadConfig().browser.app), { stdout: "ignore", stderr: "ignore" })
     return true
   } catch {
     return false

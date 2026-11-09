@@ -6,6 +6,7 @@
 import type { KeyEvent } from "@opentui/core"
 import { closePRInfoPanel } from "../../state"
 import { copyToClipboard } from "../../utils/clipboard"
+import { openUrl } from "../../utils/open-url"
 import { previewState } from "../../utils/previews"
 import type { PRInfoPanelDeps } from "./actions"
 
@@ -90,7 +91,7 @@ export function activate(deps: Deps, key: KeyEvent): void {
         }
       }
       if (check?.detailsUrl) {
-        Bun.spawn(["open", check.detailsUrl])
+        openUrl(check.detailsUrl)
       }
       break
     }
@@ -116,7 +117,7 @@ export function activate(deps: Deps, key: KeyEvent): void {
           flashToast(deps, `${preview.app} is queued — riff shows it once the bot does`)
           break
         case 'idle':
-          if (preview.built?.url) Bun.spawn(["open", preview.built.url])
+          if (preview.built?.url) openUrl(preview.built.url)
           break
       }
       break
@@ -172,18 +173,18 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
       const ann = panel.getSelectedAnnotation()
       if (ann) {
         const url = ann.annotation.rawDetailsUrl ?? ann.check.detailsUrl
-        if (url) Bun.spawn(["open", url])
+        if (url) openUrl(url)
         break
       }
       const thread = panel.getSelectedMergeThread()
       if (thread) {
         // A local thread has no page on GitHub to open.
-        if (thread.githubUrl) Bun.spawn(["open", thread.githubUrl])
+        if (thread.githubUrl) openUrl(thread.githubUrl)
         break
       }
       const check = panel.getSelectedCheck()
       if (check?.detailsUrl) {
-        Bun.spawn(["open", check.detailsUrl])
+        openUrl(check.detailsUrl)
       }
       break
     }
@@ -196,7 +197,7 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
         deps.onPreviewRow?.("open", preview)
       } else if (preview.built?.url) {
         // Nothing deployed to open: the run is the row's page on GitHub.
-        Bun.spawn(["open", preview.built.url])
+        openUrl(preview.built.url)
       }
       break
     }
@@ -205,7 +206,7 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
       if (commit) {
         const { owner, repo } = prInfo
         const url = `https://github.com/${owner}/${repo}/commit/${commit.sha}`
-        Bun.spawn(["open", url])
+        openUrl(url)
       }
       break
     }
@@ -214,7 +215,7 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
       if (file) {
         const { owner, repo, number } = prInfo
         const url = `https://github.com/${owner}/${repo}/pull/${number}/files#diff-${file.filename.replace(/\//g, '-')}`
-        Bun.spawn(["open", url])
+        openUrl(url)
       }
       break
     }
@@ -224,13 +225,13 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
         const url = item.type === 'pr-comment'
           ? item.data.url
           : item.data.threads[0]?.url
-        if (url) Bun.spawn(["open", url])
+        if (url) openUrl(url)
       }
       break
     }
     default:
       // Open PR itself
-      Bun.spawn(["open", prInfo.url])
+      openUrl(prInfo.url)
   }
 }
 

@@ -19,6 +19,7 @@ import { actions, AUTO_MERGE_ACTIONS, MERGE_ACTIONS } from "../../actions/regist
 import type { MergeMethod } from "../../providers/github/types"
 import { actionKeys, type ActionSubmenu } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
+import { openUrl } from "../../utils/open-url"
 import type { FilePickerState } from "../file-picker/state"
 import type { CommentsPickerState } from "../comments-picker/state"
 import type { OccurrencePickerState } from "../occurrence-picker/state"
@@ -282,19 +283,10 @@ export async function executeAction(
 
     case "open-in-browser":
       if (state.prInfo) {
-        const { owner, repo, number: prNumber } = state.prInfo
-        Bun.spawn([
-          "gh",
-          "pr",
-          "view",
-          String(prNumber),
-          "--web",
-          "-R",
-          `${owner}/${repo}`,
-        ])
+        openUrl(state.prInfo.url)
       } else if (state.branchPr) {
         // Local mode, but the branch has a PR riff found (spec 079).
-        Bun.spawn(["gh", "pr", "view", String(state.branchPr.number), "--web"])
+        openUrl(state.branchPr.url)
       }
       break
 

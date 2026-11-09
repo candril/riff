@@ -110,6 +110,14 @@ export interface BoardConfig {
 }
 
 /**
+ * A browser riff names outright, for a desktop whose default handler for web
+ * links is something else (macOS only, as `open -a`).
+ */
+export interface BrowserConfig {
+  app?: string
+}
+
+/**
  * Root configuration
  */
 export interface Config {
@@ -121,4 +129,5 @@ export interface Config {
   previews: PreviewsConfig
   editor: EditorConfig
   board: BoardConfig
+  browser: BrowserConfig
 }

@@ -14,8 +14,9 @@ import { defaultConfig } from "./defaults"
 /**
  * Get the config file path
  */
+// RIFF_CONFIG exists for the test suite, which must not see the developer's own settings.
 function getConfigPath(): string {
-  return join(homedir(), ".config", "riff", "config.toml")
+  return process.env.RIFF_CONFIG ?? join(homedir(), ".config", "riff", "config.toml")
 }
 
 /**
@@ -52,6 +53,7 @@ export function mergeConfig(parsed: Record<string, unknown>): Config {
     previews: { ...defaultConfig.previews, hosts: [...defaultConfig.previews.hosts] },
     editor: { ...defaultConfig.editor },
     board: { ...defaultConfig.board },
+    browser: { ...defaultConfig.browser },
   }
 
   // Merge ignore section
@@ -153,6 +155,11 @@ export function mergeConfig(parsed: Record<string, unknown>): Config {
   if (parsed.board && typeof parsed.board === "object") {
     const board = parsed.board as Record<string, unknown>
     if (typeof board.url === "string") config.board.url = board.url
+  }
+
+  if (parsed.browser && typeof parsed.browser === "object") {
+    const browser = parsed.browser as Record<string, unknown>
+    if (typeof browser.app === "string") config.browser.app = browser.app
   }
 
   return config

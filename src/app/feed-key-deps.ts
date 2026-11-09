@@ -1,6 +1,6 @@
 import type { AppKeyContext } from "./key-context"
 import { switchView } from "../state"
-import { openerCommand } from "./open-link"
+import { openUrl } from "../utils/open-url"
 import * as commentsPicker from "../features/comments-picker"
 import * as feed from "../features/feed"
 
@@ -50,7 +50,7 @@ export function feedKeyDeps(
         }
         case "check":
         case "url": {
-          if (target.url) Bun.spawn([openerCommand(), target.url], { stdout: "ignore", stderr: "ignore" })
+          if (target.url) openUrl(target.url)
           return
         }
       }

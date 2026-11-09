@@ -18,6 +18,7 @@ import * as externalTools from "../features/external-tools"
 import * as followLink from "../features/follow-link"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import { toggleRendered, type ToggleRenderedDeps } from "../features/rendered-markdown/toggle"
+import { openUrl } from "../utils/open-url"
 
 export interface GChordDeps {
   getState: () => AppState
@@ -134,10 +135,7 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
     openLink: taking(() => {
       if (deps.getState().viewMode === "diff" && deps.blame.openLink()) return
       const prInfo = inPr()
-      if (prInfo) {
-        const { owner, repo, number: prNumber } = prInfo
-        Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
-      }
+      if (prInfo) openUrl(prInfo.url)
     }),
     openPrInfo: taking(() => {
       if (inPr()) prInfoPanelFeature.handleOpenPRInfoPanel(deps.prInfoPanelOpenContext)

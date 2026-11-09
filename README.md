@@ -123,6 +123,9 @@ onFocus = true                                       # only while the terminal h
 
 [board]
 url = "http://localhost:4477"                        # where riff board listens (Ctrl+p: Open in riff board)
+
+[browser]
+app = "Firefox"                                      # macOS: open links here instead of the default handler
 ```
 
 The [configuration reference](https://candril.github.io/riff/reference/configuration/) has the rest.

@@ -66,4 +66,5 @@ export const defaultConfig: Config = {
   board: {
     url: "http://localhost:4477",
   },
+  browser: {},
 }
