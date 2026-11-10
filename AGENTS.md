@@ -307,6 +307,7 @@ src/
 ├── features/             # one directory per feature: index.ts, plus keys.ts / input.ts / handlers.ts
 │   ├── marks/            # global marks (spec 101)
 │   ├── open-pr/          # the screen `riff` shows with nothing to review (spec 112)
+│   ├── deep-link/        # a PR link's fragment, followed; the socket `riff goto` sends links to (spec 115)
 │   └── chat/             # the chat column's state, keys and components (spec 102)
 ├── vim-diff/             # line mapping, cursor, motions, search, flash, word diff
 ├── diff-rows/            # rows, pairing, segments, wrap and colours both diff views draw

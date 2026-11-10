@@ -18,7 +18,7 @@ PR or a local diff — there is no `--pr` flag to remember.
 | `pr` | The PR for the current branch or bookmark |
 | `123`, `#123` | PR #123 in the current repo |
 | `gh:owner/repo#123` | That PR, from anywhere on disk |
-| `https://github.com/owner/repo/pull/123` | The same, by URL |
+| `https://github.com/owner/repo/pull/123` | The same, by URL; a `#fragment` opens it [where the link points](#links-into-a-pr) |
 | anything else | A local revision: commit, range, branch, or jj revset |
 
 ```sh
@@ -55,6 +55,41 @@ everything that happened on `name` since.
 `riff pr` resolves the PR for whatever branch or bookmark you're on. The rest identify a PR
 directly. Before fetching, riff settles where comments will live and asks about it if it had to
 guess — see [storage](/riff/reference/configuration/#storage).
+
+### Links into a PR
+
+A link copied from GitHub keeps its fragment, and riff opens the PR there once it has loaded.
+A path after the number (`/files`, `/changes`) makes no difference.
+
+| Fragment | Where riff opens |
+| --- | --- |
+| `#discussion_r<id>`, `#r<id>` | The review comment's thread, open on that comment — a reply opens the thread it is in |
+| `#issuecomment-<id>` | The PR overview, on that conversation comment, opened |
+| `#pullrequestreview-<id>` | The PR overview, on that review, opened |
+| `#diff-<sha256>` | That file in the diff; the hash is GitHub's, of the file's path |
+| `#diff-<sha256>R<n>`, `…L<n>` | That file, the cursor on line `n` of the new (`R`) or old (`L`) side; a range `R<n>-R<m>` lands on its first line |
+
+Any other fragment, or a comment or file the PR no longer has, opens the PR as usual and says
+what wasn't found.
+
+## `riff goto`
+
+```sh
+riff goto https://github.com/owner/repo/pull/123#discussion_r456
+```
+
+Hands the link to the riff that already has that PR open, which goes there. Nothing starts and
+GitHub isn't asked: it is the question a link handler asks before opening a second riff.
+
+| Exit | |
+| --- | --- |
+| `0` | Delivered |
+| `1` | No running riff has that PR open, or the argument is no PR link |
+| `2` | The riff listening refused it |
+
+Each PR review listens on a Unix socket, `$TMPDIR/riff-<uid>/gh-owner-repo-123.sock`, in a
+directory only you can enter. The protocol is one line of JSON, `{"url": "…"}`, answered with
+`ok` or `error: …`.
 
 ## Options
 

@@ -1,5 +1,6 @@
 import type { FilesTarget } from "../providers/files"
 import { statSync } from "node:fs"
+import { parsePrLink, type LinkFragment } from "../features/deep-link/parse"
 
 export interface CliArgs {
   target?: string // "123", "#123", "gh:owner/repo#123", URL, revision, or path
@@ -12,6 +13,8 @@ export interface CliArgs {
   prNumber?: number
   owner?: string
   repo?: string
+  // Where in the PR a URL's fragment points (spec 115)
+  link?: LinkFragment
 
   // Flags
   help?: boolean
@@ -105,12 +108,14 @@ export function parseArgs(
   // GitHub URL
   const urlMatch = target.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
   if (urlMatch) {
+    const link = parsePrLink(target)?.fragment
     return {
       target,
       type: "pr",
       owner: urlMatch[1],
       repo: urlMatch[2],
       prNumber: parseInt(urlMatch[3]!, 10),
+      ...(link ? { link } : {}),
     }
   }
 

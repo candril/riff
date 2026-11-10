@@ -53,6 +53,8 @@ function sameSections(a: ReadonlySet<PRInfoPanelSection>, b: ReadonlySet<PRInfoP
 /** Rows kept between the cursor and the edge it is moving towards. */
 const CURSOR_SCROLL_OFF = 3
 
+const LINK_ALIGN_FRAMES = 4
+
 /**
  * Everything about the panel that is the reader's rather than the PR's,
  * so a rebuilt panel can be handed it back.
@@ -119,6 +121,11 @@ export class PRInfoPanelClass {
   // Set when the cursor moved; the next frame scrolls it into view, before
   // its layout and again once layout has placed whatever the move changed.
   private revealPending = false
+  // Frames left in which a row a link landed on is kept at the top. An
+  // opened comment's body is measured a frame or two after it is pushed,
+  // and a reveal made before that leaves the row at the bottom edge with
+  // its body off screen.
+  private alignTopFrames = 0
   // Where a restored position had scrolled to. A panel restored before its
   // first layout would clamp it to 0, so the first frame applies it.
   private pendingScrollTop: number | null = null
@@ -345,6 +352,7 @@ export class PRInfoPanelClass {
 
   private followCursor(): void {
     this.pendingScrollTop = null
+    this.alignTopFrames = 0
     this.revealPending = true
     this.renderer.requestRender()
   }
@@ -382,6 +390,10 @@ export class PRInfoPanelClass {
     const viewport = this.island.scrollBox.viewport
     const off = Math.min(CURSOR_SCROLL_OFF, Math.floor((viewport.height - 1) / 2))
     const top = bounds.y - viewport.y
+    if (this.alignTopFrames > 0) {
+      if (top !== off) this.island.scrollBox.scrollBy(top - off)
+      return
+    }
     // A row taller than the room between the margins shows its top.
     const bottom = top + Math.min(Math.max(1, bounds.height), viewport.height - 2 * off)
 
@@ -714,6 +726,24 @@ export class PRInfoPanelClass {
     if (this.getItemCountForSection(section) > 0) this.moveCursorTo(0)
   }
 
+  /**
+   * Stand on the conversation row `matches` picks, opened, as a link to it
+   * shows it (spec 115). A filter would hide the row, so it goes. False when
+   * no row is it: a comment deleted since, or one another section speaks for.
+   */
+  revealConversationItem(matches: (item: FlatConversationItem) => boolean): boolean {
+    this.setFilter("")
+    this.setActiveSection('conversation')
+    if (!this.isSectionExpanded()) this.expandSection()
+    const index = this.flatConversationItems.findIndex(matches)
+    if (index === -1) return false
+    this.openRow(index)
+    this.moveCursorTo(index)
+    this.followCursor()
+    this.alignTopFrames = LINK_ALIGN_FRAMES
+    return true
+  }
+
   private foldRow(index: number, open: boolean): void {
     if (this.nav.activeSection === 'conversation') {
       const item = this.flatConversationItems[index]
@@ -972,8 +1002,12 @@ export class PRInfoPanelClass {
       return
     }
     if (!this.revealPending) return
-    this.revealPending = false
     this.revealCursor()
+    if (this.alignTopFrames > 0 && --this.alignTopFrames > 0) {
+      this.renderer.requestRender()
+      return
+    }
+    this.revealPending = false
   }
 
   /** Opens, restyles or closes the `gC` prompt; its frame follower pushes it from state on every frame. */

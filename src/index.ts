@@ -8,6 +8,7 @@ import { resolveCurrentPr } from "./providers/current-pr"
 import { createDemoRepo } from "./providers/demo"
 import { findRepoRoot, resolveStorageWithConfirmation } from "./storage/resolve"
 import { runCommentsCli } from "./cli/comments"
+import { runGotoCli } from "./cli/goto"
 import { parseArgs, type CliArgs } from "./cli/args"
 import { getLocalDiff } from "./providers/local"
 import { lookupPrs } from "./providers/github/lookups"
@@ -51,7 +52,7 @@ const HELP_TEXT = `
     \x1b[36m<workspace>@\x1b[0m              Review another jj workspace's changes since trunk, as plain riff does yours
     \x1b[36m<path>\x1b[0m                    Read a file or directory as files (e.g., ., src/, src/app.ts)
     \x1b[36mgh:<owner>/<repo>#<pr>\x1b[0m   Review PR from any GitHub repository
-    \x1b[36m<github-url>\x1b[0m              Review PR from GitHub URL
+    \x1b[36m<github-url>\x1b[0m              Review PR from GitHub URL; a #fragment opens the comment, review or file it links to
 
 \x1b[1mEXAMPLES\x1b[0m
     \x1b[2m# Review uncommitted changes\x1b[0m
@@ -85,12 +86,20 @@ const HELP_TEXT = `
     $ riff gh:facebook/react#1234
     $ riff https://github.com/facebook/react/pull/1234
 
+    \x1b[2m# Open a PR at a review comment; goto hands the link to a riff that already has the PR open\x1b[0m
+    $ riff https://github.com/facebook/react/pull/1234#discussion_r987654
+    $ riff goto https://github.com/facebook/react/pull/1234#issuecomment-123456
+
 \x1b[1mOPTIONS\x1b[0m
     \x1b[33m-o, --open\x1b[0m                Ask for a PR to open: a link, 123, repo#123, repo/123 or owner/repo#123
     \x1b[33m--demo\x1b[0m                    Review a repository riff generates: no network, no gh
     \x1b[33m-r, --revision <rev>\x1b[0m      Read <rev> as a revision, even where a path of that name exists
     \x1b[33m-h, --help\x1b[0m                Show this help message
     \x1b[33m-v, --version\x1b[0m             Show version number
+
+\x1b[1mRUNNING INSTANCE\x1b[0m
+    riff goto <github-pr-url>               Show the link's comment, review or file in the riff that has
+                                            that PR open; exits 1 when none has, never starts one
 
 \x1b[1mLOCAL COMMENTS\x1b[0m
     \x1b[2mThe comments a review stores in .riff/, from the command line. Never touches GitHub.
@@ -382,6 +391,10 @@ async function runScreen(
 }
 
 async function main() {
+  if (process.argv[2] === "goto") {
+    process.exit(await runGotoCli(process.argv.slice(3)))
+  }
+
   if (process.argv[2] === "comments") {
     try {
       process.exit(await runCommentsCli(process.argv.slice(3), { resolveSource: resolveSourceForCli }))
@@ -442,6 +455,7 @@ async function main() {
         githubViewedStatuses: viewedStatuses,
         headSha,
         demo: args.demo,
+        link: args.link,
       })
     } else if (args.type === "files") {
       await confirmStorageLocation("local")

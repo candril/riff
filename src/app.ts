@@ -157,6 +157,8 @@ import * as feedFeature from "./features/feed"
 import { startCommentPoll } from "./features/comment-poll"
 import { focusHandler, reportsFocus } from "./features/comment-poll/focus"
 import * as reactions from "./features/reactions"
+import * as commentsPickerFeature from "./features/comments-picker"
+import { followLink, serveLinks, type DeepLinkJumpDeps, type LinkFragment, type LinkServer } from "./features/deep-link"
 import { reactionTargetOf } from "./features/reactions/target"
 import { reactionContentFromRowId } from "./features/action-menu"
 import type { ReactionTarget } from "./types"
@@ -187,6 +189,8 @@ export interface AppOptions {
   headSha?: string
   // `--demo`: the chat runs on a canned agent rather than Claude
   demo?: boolean
+  // For PR mode - where the URL riff was opened with points (spec 115)
+  link?: LinkFragment
 }
 
 export async function createApp(options: AppOptions = {}) {
@@ -1513,6 +1517,58 @@ export async function createApp(options: AppOptions = {}) {
 
   // ===== INITIAL RENDER =====
   render()
+
+  // ===== PR DEEP LINKS (spec 115) =====
+  const deepLinkDeps: DeepLinkJumpDeps = {
+    getState: () => state,
+    setState: setAppState,
+    render,
+    toast,
+    later: (fn, ms) => { setTimeout(fn, ms) },
+    recordJump: () => {
+      jumpList.push(jumplist.capture(state, vimState, lineMapping, { split: diffOptions.splitView(), pane: split.commentScope().pane }))
+    },
+    openThread: (comment) =>
+      commentsPickerFeature.jumpToComment(comment, {
+        getState: () => state,
+        setState: setAppState,
+        getVimState: () => vimState,
+        setVimState: (s) => { vimState = s },
+        getLineMapping: () => lineMapping,
+        ensureCursorVisible,
+        render,
+        fileNavContext,
+        toast,
+        composerPickers,
+        codePeek,
+      }),
+    openOverview: () => { void prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext) },
+    revealConversationItem: (matches) => prInfoPanel?.revealConversationItem(matches) ?? false,
+    selectFile: (fileIndex) => fileNavigation.handleSelectFile(fileIndex, fileNavContext),
+    getLineMapping: () => lineMapping,
+    getVimState: () => vimState,
+    setVimState: (s) => { vimState = s },
+    ensureCursorVisible,
+  }
+  const followDeepLink = (fragment: LinkFragment | null) => {
+    if (fragment) followLink(fragment, deepLinkDeps)
+  }
+
+  // After the first frame, so the views the jump scrolls have been laid out.
+  if (options.link) {
+    const startupLink = options.link
+    setTimeout(() => followDeepLink(startupLink), 0)
+  }
+
+  // A link that arrives while riff is up is one the reader clicked to see
+  // now, in whatever view they were in; `riff goto` sends it.
+  let linkServer: LinkServer | null = null
+  if (mode === "pr") {
+    void serveLinks(state.source, followDeepLink).then((server) => {
+      linkServer = server
+    })
+    renderer.on("destroy", () => linkServer?.close())
+  }
 
   // The file riff opened on, read after the first frame rather than before
   // it: the list is on screen while the file arrives (spec 084).

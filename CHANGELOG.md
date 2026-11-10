@@ -17,6 +17,11 @@ release, so write it before tagging.
   lines and its file paths, closest to the comment first. `Tab` writes the whole code span.
 - `[browser] app` names the browser riff opens links in on macOS, for a desktop whose default
   handler for web links is something else.
+- A PR link with a fragment opens riff where it points: a review comment's thread, a
+  conversation comment or review in the PR overview, or a file and line in the diff
+  (`#discussion_r…`, `#issuecomment-…`, `#pullrequestreview-…`, `#diff-…R12`).
+- `riff goto <url>` hands such a link to the riff that already has the PR open, over a Unix
+  socket each PR review listens on; it exits 1 when there is none.
 
 ### Changed
 

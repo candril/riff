@@ -63,4 +63,17 @@ describe("parseArgs", () => {
     })
     expect(parseArgs(["pr"], noPaths).type).toBe("pr")
   })
+
+  test("a PR URL's fragment says where to open it (spec 115)", () => {
+    expect(parseArgs(["https://github.com/o/r/pull/5/files#discussion_r9"], noPaths)).toEqual({
+      target: "https://github.com/o/r/pull/5/files#discussion_r9",
+      type: "pr",
+      owner: "o",
+      repo: "r",
+      prNumber: 5,
+      link: { kind: "target", target: { kind: "review-comment", githubId: 9 } },
+    })
+    expect(parseArgs(["https://github.com/o/r/pull/5#nope"], noPaths).link).toEqual({ kind: "unknown", fragment: "nope" })
+    expect(parseArgs(["https://github.com/o/r/pull/5"], noPaths)).not.toHaveProperty("link")
+  })
 })
