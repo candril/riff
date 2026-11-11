@@ -4,6 +4,7 @@ import type { EmojiPickerState, MentionPickerState, SymbolPickerState } from "..
 import { colors, theme } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
+import { suggestionsInFileLanguage } from "../utils/suggestion-fence"
 import { fitPicker, threadPanelPicker, type ThreadPanelPicker } from "./thread-panel-picker"
 import { threadPanelHints, type Hint } from "./thread-panel-hints"
 import { windowThreads, type WindowThread } from "./thread-panel-window"
@@ -255,7 +256,7 @@ function commentModel(
     editing: comment.id === input.editingId,
     highlighted,
     bodyIndent: isRoot ? ROOT_BODY_INDENT : REPLY_BODY_INDENT,
-    bodyText: body.text,
+    bodyText: suggestionsInFileLanguage(body.text, comment.filename),
     images: body.images,
     // Copies: the island's store reconciles into the reactions it holds, and
     // those would otherwise be the state's own, shared with the state before.

@@ -116,9 +116,9 @@ test("a key named enter is not a save key: the textarea gets it", async () => {
   expect(settled).toEqual([])
 })
 
-test("Ctrl-y puts a suggestion block with the commented line at the cursor", async () => {
+test("Ctrl-o puts a suggestion block with the commented line at the cursor", async () => {
   const { app, textarea } = await composer()
-  send(app, "\x19")
+  send(app, "\x0f")
 
   const block = '```suggestion\n  return "hello"\n```\n'
   expect(textarea.plainText).toBe(block)
@@ -126,10 +126,34 @@ test("Ctrl-y puts a suggestion block with the commented line at the cursor", asy
   expect(overlay(app).mode).toBe("compose")
 })
 
-test("Ctrl-y says so when riff cannot read the commented lines", async () => {
+test("Ctrl-o after text on the line starts the block on the next one", async () => {
+  const { app, textarea } = await composer()
+  await app.setup.mockInput.typeText("Simpler:")
+  send(app, "\x0f")
+
+  expect(textarea.plainText).toBe('Simpler:\n```suggestion\n  return "hello"\n```\n')
+})
+
+test("Ctrl-o at the start of a line adds no blank line", async () => {
+  const { app, textarea } = await composer()
+  await app.setup.mockInput.typeText("Simpler:")
+  send(app, "\n")
+  send(app, "\x0f")
+
+  expect(textarea.plainText).toBe('Simpler:\n```suggestion\n  return "hello"\n```\n')
+})
+
+test("Ctrl-y with no picker up inserts no suggestion", async () => {
+  const { app, textarea } = await composer()
+  send(app, "\x19")
+
+  expect(textarea.plainText).toBe("")
+})
+
+test("Ctrl-o says so when riff cannot read the commented lines", async () => {
   const { app, textarea } = await composer()
   app.ctx.setState((s) => ({ ...s, inlineCommentOverlay: { ...s.inlineCommentOverlay, line: 99 } }))
-  send(app, "\x19")
+  send(app, "\x0f")
 
   expect(textarea.plainText).toBe("")
   expect(app.toast.current()?.message).toBe("Nothing to suggest — riff cannot read those lines")

@@ -22,17 +22,22 @@ riff has the lines. It should type them for you.
 
 ### P1
 
-- `Ctrl-y` in the comment composer inserts a suggestion block at the cursor,
+- `Ctrl-o` in the comment composer inserts a suggestion block at the cursor,
   prefilled with the lines the comment replaces, as they read now. You edit
-  them in place; the fence is already right.
+  them in place; the fence is already right. After text on the cursor's
+  line the block starts on the next one, since a fence opens only at the
+  start of a line. (`Ctrl-y` accepts a picker's match, as in vim.)
 - A comment written on a **selection** covers that whole block: it is
   anchored to the selection's last commentable line and carries the first,
   which is how GitHub's review API spells a multi-line comment. The
   suggestion then replaces exactly the lines that were selected.
 - The range survives being saved, re-read and published — as a single
   comment, in a batched review, and through the sync of a local one.
-- On a comment riff cannot read lines for, `Ctrl-y` says so rather than
+- On a comment riff cannot read lines for, `Ctrl-o` says so rather than
   inserting an empty fence, which GitHub would read as "delete these lines".
+- The thread panel draws a suggestion highlighted in the commented file's
+  language. The comment keeps its `suggestion` fence, the only one GitHub
+  applies.
 
 ## Technical Notes
 

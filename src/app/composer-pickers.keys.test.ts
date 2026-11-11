@@ -59,6 +59,7 @@ for (const picker of pickers) {
   for (const [label, press] of [
     ["Tab", "\t"],
     ["Enter", "\r"],
+    ["Ctrl-y", "\x19"],
   ] as const) {
     test(`the ${picker.name} picker: ${label} accepts the selected match`, async () => {
       const opened = await composer()
@@ -157,6 +158,16 @@ test("the symbol picker: Enter accepts instead of saving", async () => {
   expect(opened.textarea.plainText).toBe("`hello`")
   expect(overlay(opened.app).mode).toBe("compose")
   expect(opened.app.ctx.getState().comments).toEqual([])
+})
+
+test("the symbol picker: Ctrl-y accepts instead of inserting a suggestion", async () => {
+  const opened = await composer()
+  await opened.app.setup.mockInput.typeText("`hel")
+  send(opened.app, "\x19")
+  await opened.app.frame()
+
+  expect(opened.textarea.plainText).toBe("`hello`")
+  expect(opened.app.composerPickers.symbol()).toBeNull()
 })
 
 test("a name the diff does not have draws no picker, and leaves Enter, Tab and Esc to the composer", async () => {

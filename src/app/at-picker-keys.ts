@@ -58,6 +58,7 @@ export function registerAtPickerLayer(riffKeymap: RiffKeymap, layer: AtPickerLay
       ...anyModifiers("down", `${prefix}.down`),
       ...anyModifiers("ctrl+n", `${prefix}.down`),
       ...anyModifiers("tab", `${prefix}.accept`),
+      ...anyModifiers("ctrl+y", `${prefix}.accept`),
       ...anyModifiers("return", `${prefix}.accept`),
       ...anyModifiers("enter", `${prefix}.accept`),
     ],

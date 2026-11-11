@@ -57,7 +57,7 @@ test("the composer's keys are drawn with what they do, above the footer", async 
   const footer = rows.findIndex((line) => line.includes("Press g? or Esc to close"))
   const publish = rows.findIndex((line) => /Ctrl\+p\s+Save & publish/.test(line))
   const newline = rows.findIndex((line) => /Ctrl\+j\s+Newline/.test(line))
-  const pick = rows.findIndex((line) => /Tab \/ Enter\s+Pick in a picker/.test(line))
+  const pick = rows.findIndex((line) => /Tab\/Enter\/Ctrl\+y\s+Pick in a picker/.test(line))
   expect(publish).toBeGreaterThan(-1)
   expect(newline).toBeGreaterThan(-1)
   expect(pick).toBeGreaterThan(-1)

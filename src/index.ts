@@ -178,6 +178,8 @@ const HELP_TEXT = `
     Ctrl-p                    Save and publish it now (PR mode)
     Ctrl-j                    Newline
     Ctrl-g                    Continue in $EDITOR
+    Ctrl-o                    Suggestion block of the commented lines
+    Ctrl-y                    Accept a picker's match (as Tab and Enter)
     @                         Mention picker
     \`                         Picker over the diff's symbols, inside a code span
 

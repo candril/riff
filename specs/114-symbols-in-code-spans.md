@@ -44,7 +44,7 @@ Open a backtick, type a letter or two, press Tab.
   does not: it is the first keystroke of every span and fence.
 - The characters after the backtick are identifier characters, `.`, `/`, `:`
   or `-`. A space means the span is not one name, and closes the picker.
-- `↑`/`↓` or `Ctrl-p`/`Ctrl-n` move, `Tab` or `Enter` accepts, `Esc`
+- `↑`/`↓` or `Ctrl-p`/`Ctrl-n` move, `Tab`, `Enter` or `Ctrl-y` accepts, `Esc`
   dismisses and leaves what was typed. The other pickers' keys exactly.
 - Accepting replaces the span with `` `name` `` and leaves the cursor after
   it. A closing backtick already there is reused, not doubled.

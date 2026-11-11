@@ -8,7 +8,6 @@ import { filterEmoji } from "../../utils/emoji"
 import { collectMentionCandidates } from "../../utils/mentions"
 import { composerSymbolCandidates } from "../../utils/diff-symbols"
 import { getFilteredMentionCandidates, symbolMatches } from "../../components/thread-panel-picker"
-import type { ComposerHandle } from "../../app/island-composer"
 import type { InputPicker } from "../../app/at-picker-keys"
 import { cancelComposing, submitInlineDraft, submitInlineEditDraft } from "./handlers"
 import type { ComposerKeyDeps } from "./composer-keys"
@@ -32,10 +31,11 @@ export function editDraftInEditor(deps: ComposerKeyDeps): void {
 }
 
 /**
- * Ctrl-y: a suggestion block prefilled with the lines this comment replaces,
+ * Ctrl-o: a suggestion block prefilled with the lines this comment replaces,
  * so the edit is made in place rather than described (spec 076). On a
  * comment written against a block that is the whole block; on one line,
- * that line.
+ * that line. A fence only opens at the start of a line, so after text on
+ * the cursor's line the block goes on the next.
  */
 export function insertSuggestion(deps: ComposerKeyDeps): void {
   const lines = deps.getCommentedLines()
@@ -48,7 +48,10 @@ export function insertSuggestion(deps: ComposerKeyDeps): void {
     }, 2500)
     return
   }
-  insertAtComposerCursor(deps.composer, suggestionBlock(lines))
+  const at = deps.composer.cursorOffset()
+  const before = deps.composer.value().slice(0, at)
+  const midLine = before !== "" && !before.endsWith("\n")
+  deps.composer.replaceRange(at, at, (midLine ? "\n" : "") + suggestionBlock(lines))
   deps.setState((s) => setInlineCommentInput(s, deps.composer.value()))
   deps.render()
 }
@@ -190,11 +193,6 @@ function acceptMention(deps: ComposerKeyDeps, atOffset: number, username: string
   // picker over the finished mention should that callback ever come later.
   deps.composerPickers.setMention(null)
   deps.render()
-}
-
-function insertAtComposerCursor(composer: ComposerHandle, text: string): void {
-  const at = composer.cursorOffset()
-  composer.replaceRange(at, at, text)
 }
 
 /**

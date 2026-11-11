@@ -84,7 +84,8 @@ export function registerComposerKeys(riffKeymap: RiffKeymap, deps: ComposerKeyDe
     ],
     bindings: [
       ...anyModifiers("ctrl+g", "composer.editor"),
-      ...anyModifiers("ctrl+y", "composer.suggest"),
+      // Not Ctrl-y: that accepts a picker's match, as in vim's completion menu.
+      ...anyModifiers("ctrl+o", "composer.suggest"),
       ...anyModifiers("escape", "composer.cancel"),
       ...anyModifiers("ctrl+s", "composer.save"),
       // "return" alone: a key named "enter" is not a save key, and the

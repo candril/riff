@@ -36,7 +36,7 @@ Type `:ro`, see the rocket, press Tab.
 
 - A `:` that starts a word, with at least one character typed after it,
   opens the picker. A bare colon does not: prose is full of them.
-- `↑`/`↓` or `Ctrl-p`/`Ctrl-n` move, `Tab` or `Enter` accepts, `Esc`
+- `↑`/`↓` or `Ctrl-p`/`Ctrl-n` move, `Tab`, `Enter` or `Ctrl-y` accepts, `Esc`
   dismisses and leaves what was typed. The mention picker's keys exactly —
   two pickers that behaved differently would be two things to remember.
 - The query matches the shortcode it starts, then the one it appears in,
