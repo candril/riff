@@ -192,7 +192,7 @@ describe("the merge status's conversations line", () => {
       keys.press("j")
       keys.press("o")
       keys.press("y")
-      expect(spawned()[0]).toBe("open https://github.com/o/r/pull/1#discussion_r41")
+      expect(spawned()[0]).toMatch(/^(open|xdg-open) https:\/\/github\.com\/o\/r\/pull\/1#discussion_r41$/)
       expect(spawned()[1]).toMatch(/^(pbcopy|xclip)/)
       expect(spawned()).toHaveLength(2)
       await Bun.sleep(0)

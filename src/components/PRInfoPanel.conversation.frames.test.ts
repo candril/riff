@@ -130,7 +130,7 @@ describe("the conversation", () => {
     expect(lines.slice(17, 34)).toEqual([
       "    ▼ PR @dana                                                                                           👍2 🚀1    6h",
       "",
-      "        I tried this on staging and it works for me.",
+      "        I tried this on staging and it works (https://example.com) for me.",
       "        - one",
       "        - two",
       "",

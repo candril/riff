@@ -18,18 +18,10 @@ async function openTuiCells(content: string): Promise<number> {
   return cells
 }
 
-const corpus = ["中", "Ａ", "ｱ", "😀", "❤\ufe0f", "🇨🇭", "e\u0301", "→", "✓", "\u200b", "a", "\t", "\r", "\x1b", "\x7f", "\x0c", "\u00ad"]
+const corpus = ["中", "Ａ", "ｱ", "😀", "❤\ufe0f", "🇨🇭", "e\u0301", "→", "✓", "\u200b", "a", "\t", "\r", "\x1b", "\x7f", "\x0c", "\u00ad", "👍🏽", "👨\u200d👩\u200d👧", "✔\ufe0f", "©\ufe0f"]
 // A CRLF file leaves a \r at the end of every line, on ASCII lines and others alike.
 const CONTROL_LINES = ["abc\r", "a\x1bb", "é\r"]
 const MIXED = "const 名前 = \"Ａｱ😀\" // ✓ e\u0301 → 🇨🇭❤\ufe0f\u200b"
-
-// The test renderer measures with wcwidth, which adds up a skin-toned or
-// ZWJ emoji's parts and ignores a variation selector that makes a
-// text-default symbol an emoji. Measured by Unicode — the method OpenTUI
-// picks when the terminal reports it — each is one wide glyph, as
-// Bun.stringWidth and riff count it. Once OpenTUI's test renderer agrees,
-// this test fails and the list goes.
-const WCWIDTH_DISAGREES = ["👍🏽", "👨\u200d👩\u200d👧", "✔\ufe0f", "©\ufe0f"]
 
 describe("graphemeCells against OpenTUI", () => {
   test("each grapheme of the corpus", async () => {
@@ -47,13 +39,6 @@ describe("graphemeCells against OpenTUI", () => {
   test("lines holding a control character", async () => {
     for (const line of CONTROL_LINES) {
       expect({ line, cells: cellsOf(line) }).toEqual({ line, cells: await openTuiCells(line) })
-    }
-  })
-
-  test("wcwidth draws the named exceptions in other widths than riff counts", async () => {
-    for (const grapheme of WCWIDTH_DISAGREES) {
-      expect({ grapheme, cells: graphemeCells(grapheme) }).toEqual({ grapheme, cells: 2 })
-      expect(await openTuiCells(grapheme)).not.toBe(graphemeCells(grapheme))
     }
   })
 })
