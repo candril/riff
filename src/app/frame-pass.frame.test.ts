@@ -37,7 +37,9 @@ test("a full pass draws the header, the tree beside the diff, and the status bar
   const frame = (await app.frame()).replace(version, "VERSION")
   expect(frame).toBe(
     [
-      " riff  All files (2)                                                      0/2 reviewed  VERSION",
+      // The header right-aligns the version, so the gap before it depends on how many cells
+      // the real version takes, which varies with git's short-sha length.
+      " riff  All files (2)".padEnd(99 - "0/2 reviewed  ".length - version.length) + "0/2 reviewed  VERSION",
       "  Files (0/2)                       ▼   src/greet.ts +1 -1",
       " ○   ▼ src                             1 export function greet() {",
       " ○ M     greet.ts                      2   return \"hi\"",
