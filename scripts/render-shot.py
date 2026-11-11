@@ -263,7 +263,7 @@ def captioned(img, keycap, text):
 def hold_for(text):
     """Seconds a frame stays up. A caption nobody can finish reading is the same as no
     caption, so the dwell follows the word count rather than a number chosen by hand."""
-    return min(8.0, max(3.0, 1.6 + len(text.split()) / 2.4))
+    return min(6.0, max(2.4, 1.2 + len(text.split()) / 3.0))
 
 
 def gif(frames, out, cols, rows):

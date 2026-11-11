@@ -12,8 +12,8 @@
 #
 # Starts on the PR overview of the fixture PR (riff opens PR mode there).
 
-4.0  |                          |      | the PR itself: description, threads, checks, commits, files
-auto | i                        | i    | the diff — every file, one buffer, Tree-sitter colours
+3.2  |                          |      | the PR itself: description, threads, checks, commits, files
+auto | d                        | d    | the diff — every file, one buffer, Tree-sitter colours
 auto | C-b                      | ^B   | the file tree, with viewed state per file
 auto | C-b ] c ] c              | ]c   | hunk to hunk; ]f file to file, ]u to the next unviewed
 auto | ] r Enter                | ]r ↵ | the next thread, opened where it was written
@@ -25,4 +25,4 @@ auto | V j j c                  | V c  | a comment on a range
 auto | type:"Clamp this too — Retry-After can be an HTTP date, and Number() of that is NaN." Enter | ↵ | drafted, on disk, yours until you publish
 auto | Escape g S               | gS   | the review preview: everything pending, one verdict, one review
 auto | Escape C-p               | ^P   | every action that applies right now, with its key
-5.0  | Escape g ?               | g?   | the keymap. Nothing has to be memorised.
+4.0  | Escape g ?               | g?   | the keymap. Nothing has to be memorised.

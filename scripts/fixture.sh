@@ -17,6 +17,10 @@ fixture() {
   if [ ! -d "$FIXTURE_DIR/.git" ]; then
     gh repo clone "$FIXTURE_REPO" "$FIXTURE_DIR" -- -q
   fi
+  # The compiled binary, not `bun src/index.ts`: run from the fixture's directory, bun
+  # finds no bunfig.toml and so no Solid preload, and the header would carry the
+  # fixture's commit as riff's version.
+  bun scripts/build.ts >/dev/null
 }
 
 # launch <session> <cols> <rows>: riff on the fixture PR in a detached tmux pane.
@@ -25,9 +29,15 @@ launch() {
   tmux kill-session -t "$session" 2>/dev/null || true
   # Every launch starts from a PR nobody has reviewed yet — drafts from one
   # screenshot must not show up in the next.
-  /bin/rm -rf "$FIXTURE_DIR/.riff"
+  # A riff killed with its session still writes its visit on the hangup, racing the rm.
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    /bin/rm -rf "$FIXTURE_DIR/.riff" 2>/dev/null && break
+    sleep 0.5
+  done
+  [ ! -e "$FIXTURE_DIR/.riff" ]
   tmux new-session -d -s "$session" -x "$cols" -y "$rows" -c "$FIXTURE_DIR" \
-    "bun '$RIFF/src/index.ts' $FIXTURE_PR 2>/dev/null; sleep 600"
+    "'$RIFF/dist/riff' $FIXTURE_PR 2>/dev/null; sleep 600"
   # One GraphQL round trip plus the diff, then the first render.
   sleep "${LAUNCH_WAIT:-8}"
 }
