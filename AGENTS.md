@@ -227,6 +227,10 @@ There is no repo-local config file — configuration is only
 The directory name is the source with its punctuation flattened:
 `gh:owner/repo#123` → `gh-owner-repo-123`.
 
+`~/.riff/usage.json` is global, never per repo: how often each keymap command
+and palette action ran, which `riff usage` reports least used first
+([spec 117](specs/117-usage-counts.md)).
+
 `riff comments [list|resolve|unresolve|remove|clear|install-skill]` operates
 on those files from the command line (`src/cli/comments.ts`, spec 049), and
 `install-skill` writes the Claude Code skill in `src/cli/skill.ts` that

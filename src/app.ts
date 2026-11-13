@@ -123,6 +123,7 @@ import { createUnifiedDiff } from "./app/unified-diff"
 import { toLineState, toRowState } from "./app/split-cursor"
 import { routeDiffViewport } from "./app/diff-viewport"
 import { createAppKeys } from "./app/keys"
+import { startUsageRecording } from "./features/usage"
 
 // Feature modules
 import * as actionMenuFeature from "./features/action-menu"
@@ -1489,6 +1490,7 @@ export async function createApp(options: AppOptions = {}) {
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys
+  startUsageRecording(renderer, dispatchKeypress.keymap, actionMenu)
 
   const jumpRecording = createJumpRecording({
     getState: () => state,

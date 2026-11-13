@@ -9,6 +9,7 @@ import { createDemoRepo } from "./providers/demo"
 import { findRepoRoot, resolveStorageWithConfirmation } from "./storage/resolve"
 import { runCommentsCli } from "./cli/comments"
 import { runGotoCli } from "./cli/goto"
+import { runUsageCli } from "./cli/usage"
 import { parseArgs, type CliArgs } from "./cli/args"
 import { getLocalDiff } from "./providers/local"
 import { lookupPrs } from "./providers/github/lookups"
@@ -100,6 +101,10 @@ const HELP_TEXT = `
 \x1b[1mRUNNING INSTANCE\x1b[0m
     riff goto <github-pr-url>               Show the link's comment, review or file in the riff that has
                                             that PR open; exits 1 when none has, never starts one
+
+\x1b[1mUSAGE\x1b[0m
+    riff usage [--json]                     How often each action ran, on its key and from Ctrl+p,
+                                            least used first; counted in ~/.riff/usage.json
 
 \x1b[1mLOCAL COMMENTS\x1b[0m
     \x1b[2mThe comments a review stores in .riff/, from the command line. Never touches GitHub.
@@ -395,6 +400,10 @@ async function runScreen(
 async function main() {
   if (process.argv[2] === "goto") {
     process.exit(await runGotoCli(process.argv.slice(3)))
+  }
+
+  if (process.argv[2] === "usage") {
+    process.exit(runUsageCli(process.argv.slice(3)))
   }
 
   if (process.argv[2] === "comments") {

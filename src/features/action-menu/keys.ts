@@ -93,6 +93,7 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
     // "react" opens a submenu in the palette rather than leaving it (spec
     // 042). executeAction draws on its own.
     if (selected.id !== "react") close()
+    actionMenu.picked(selected.id)
     deps.executeAction(selected.id)
   }
 

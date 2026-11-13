@@ -20,6 +20,7 @@ export function createActionMenuState() {
   const [query, setQuery] = createSignal("")
   const [selectedIndex, setSelectedIndex] = createSignal(0)
   const [submenu, setSubmenu] = createSignal<ActionSubmenu | null>(null)
+  const pickListeners = new Set<(actionId: string) => void>()
 
   const reset = (isOpen: boolean, next: ActionSubmenu | null) => {
     batch(() => {
@@ -65,6 +66,14 @@ export function createActionMenuState() {
         setQuery(next)
         setSelectedIndex(0)
       })
+    },
+    /** An action run from the list; the usage counts listen (spec 117). */
+    picked(actionId: string) {
+      for (const listener of pickListeners) listener(actionId)
+    },
+    onPick(listener: (actionId: string) => void): () => void {
+      pickListeners.add(listener)
+      return () => void pickListeners.delete(listener)
     },
     move(delta: number, maxIndex: number) {
       let next = selectedIndex() + delta
