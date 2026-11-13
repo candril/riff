@@ -27,6 +27,7 @@ import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
 import { loadFileContent } from "../features/file-content/load"
 import { createRenderedMarkdownState } from "../features/rendered-markdown/state"
+import { createNestedDiffState } from "../features/nested-diff/state"
 import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFileFoldsState } from "../features/folds/file-folds-state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
@@ -101,7 +102,8 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   // A reload only folds more files in it.
   const fileFolds = createFileFoldsState()
   const renderedMarkdown = createRenderedMarkdownState()
-  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown)
+  const nestedDiff = createNestedDiffState()
+  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown, nestedDiff)
   let headSha = "head-1"
 
   const calls = {
@@ -157,7 +159,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     getSearchState: () => searchState,
     setSearchState: (s) => { searchState = s },
     getMapping: () => mapping,
-    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown) },
+    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown, nestedDiff) },
     revealCursor: () => {},
     refreshSearchMatches: () => {},
     reloadFeed: () => { calls.reloadFeed++ },

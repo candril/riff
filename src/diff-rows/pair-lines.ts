@@ -1,4 +1,5 @@
 import type { DiffLine } from "../vim-diff/types"
+import { shownType } from "./shown-type"
 
 export interface LinePair {
   left?: number
@@ -16,7 +17,7 @@ export function pairLines(lines: readonly DiffLine[]): Array<LinePair | { full: 
   const runOf = (type: "deletion" | "addition", start: number): number[] => {
     const run: number[] = []
     let i = start
-    while (lines[i]?.type === type) {
+    while (lines[i] && shownType(lines[i]!) === type) {
       run.push(i++)
       if (lines[i]?.type === "no-newline") run.push(i++)
     }
@@ -25,7 +26,8 @@ export function pairLines(lines: readonly DiffLine[]): Array<LinePair | { full: 
 
   let i = 0
   while (i < lines.length) {
-    const type = lines[i]!.type
+    // A nested file's lines pair across the diff they contain (spec 116).
+    const type = shownType(lines[i]!)
     if (type === "context") {
       rows.push(lines[i]!.rendered ? { right: i } : { left: i, right: i })
       i++

@@ -43,10 +43,15 @@ export function parseDiff(diff: string): DiffFile[] {
     let additions = 0
     let deletions = 0
 
-    // Count additions and deletions
+    // Only before the first hunk is `+++ ` a header: inside one it is the
+    // addition of a line starting `++`, as every line of a nested diff's
+    // own header is (spec 116).
+    let inHunk = false
     for (const line of lines) {
-      if (line.startsWith("+") && !line.startsWith("+++")) additions++
-      if (line.startsWith("-") && !line.startsWith("---")) deletions++
+      if (line.startsWith("@@")) inHunk = true
+      else if (!inHunk) continue
+      else if (line.startsWith("+")) additions++
+      else if (line.startsWith("-")) deletions++
     }
 
     // Determine file status

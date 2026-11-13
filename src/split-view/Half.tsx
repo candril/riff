@@ -3,17 +3,23 @@ import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors
 import type { Side } from "../diff-rows/rows"
 import { buildSegments, type Segment } from "../diff-rows/segments"
 import { colors, theme } from "../theme"
+import { isInnerChrome, tintType, wordType } from "../diff-rows/shown-type"
+import { outerChangeBar, outerChangeFg } from "./outer-change"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine } from "../vim-diff/types"
 import type { SplitEnv } from "./env"
 import { contentOrigin, halfContent } from "./layout"
 import { charSelectionOn, inLineSelection } from "./overlays"
 
-const tintOf = (line: DiffLine | undefined) =>
-  line?.type === "addition" ? ADDITION_BG : line?.type === "deletion" ? DELETION_BG : undefined
+const tintOf = (line: DiffLine | undefined) => {
+  const type = tintType(line)
+  return type === "addition" ? ADDITION_BG : type === "deletion" ? DELETION_BG : undefined
+}
 
 function lineNumber(line: DiffLine, side: Side): string {
   if (line.type === "no-newline") return ""
+  // The half a nested line sits in is its inner side, not its outer one: its number is the file's (spec 116).
+  if (line.inner) return String(line.newLineNum ?? line.oldLineNum ?? "")
   return String((side === "left" ? line.oldLineNum : line.newLineNum) ?? "")
 }
 
@@ -64,7 +70,7 @@ export function Half(props: {
     { equals: sameSpan }
   )
   const background = () => {
-    if (props.active) return cursorLineBg(line()?.type)
+    if (props.active) return cursorLineBg(tintType(line()))
     if (lineSelected()) return theme.surface0
     // An empty half is shaded, so it reads as the absence of a line rather than a blank one.
     return tintOf(line()) ?? (line() ? undefined : theme.mantle)
@@ -86,8 +92,8 @@ export function Half(props: {
     const full = buildSegments(shown.content, {
       spans: view.lineSpans.spans(view.mapping.allLines, props.index),
       words: env.words().get(props.index),
-      wordSide: shown.type === "deletion" ? "removed" : "added",
-      baseFg: theme.text,
+      wordSide: wordType(shown) === "deletion" ? "removed" : "added",
+      baseFg: isInnerChrome(shown) ? theme.overlay1 : theme.text,
       rowBg: background() ?? theme.base,
       search: { matches: env.searchHits().get(props.index) ?? [] },
       selection: charSelection(),
@@ -111,8 +117,8 @@ export function Half(props: {
             {env.blameCells()[props.side].get(props.index!) ?? " ".repeat(blameWidth())}
           </text>
         </Show>
-        <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
-          {`${lineNumber(line()!, props.side).padStart(env.gutter())} `}
+        <text wrapMode="none" flexShrink={0} fg={outerChangeFg(line()) ?? theme.overlay0} bg={gutterBg()}>
+          {`${lineNumber(line()!, props.side).padStart(env.gutter())}${outerChangeBar(line())}`}
         </text>
         <SegmentTexts segments={segments()} />
       </Show>

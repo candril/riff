@@ -1,4 +1,5 @@
 import { colors, theme } from "../theme"
+import { shownType } from "./shown-type"
 import type { Comment } from "../types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { sideOf } from "./line-spans"
@@ -31,10 +32,11 @@ export function commentSigns(mapping: DiffLineMapping, comments: readonly Commen
   for (const comment of comments) {
     const line = mapping.findLineForComment(comment)
     if (line === null) continue
-    const own = sideOf(mapping.allLines, line)
     const shown = mapping.getLine(line)
+    // A nested line sits in the half its inner side gives it (spec 116).
+    const own = shown?.inner ? (shownType(shown) === "deletion" ? "old" : "new") : sideOf(mapping.allLines, line)
     const side: Side =
-      (shown?.type === "context" && !shown.rendered) || own === undefined
+      (shown && shownType(shown) === "context" && !shown.rendered) || own === undefined
         ? comment.side === "LEFT" ? "left" : "right"
         : own === "old" ? "left" : "right"
     signs.set(line, { color: commentSignColor(comment), side })

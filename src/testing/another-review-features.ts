@@ -29,6 +29,7 @@ import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFileFoldsState } from "../features/folds/file-folds-state"
 import { createChatColumnState } from "../features/chat/column-state"
 import { createRenderedMarkdownState } from "../features/rendered-markdown/state"
+import { createNestedDiffState } from "../features/nested-diff/state"
 import type { AnotherReviewFeatures } from "../features/refresh/another-review"
 
 export function createAnotherReviewFeatures() {
@@ -59,5 +60,6 @@ export function createAnotherReviewFeatures() {
     fileFolds: createFileFoldsState(),
     chatColumn: createChatColumnState(),
     renderedMarkdown: createRenderedMarkdownState(),
+    nestedDiff: createNestedDiffState(),
   } satisfies AnotherReviewFeatures
 }

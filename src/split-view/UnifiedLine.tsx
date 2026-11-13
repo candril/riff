@@ -7,6 +7,8 @@ import { colors as themeColors, theme } from "../theme"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine, DiffLineType } from "../vim-diff/types"
 import { SegmentTexts, sameSpan } from "./Half"
+import { isInnerChrome, tintType, wordType } from "../diff-rows/shown-type"
+import { OUTER_CHANGE_BAR, outerChangeFg } from "./outer-change"
 import { SIGN_CELLS } from "./layout"
 import { charSelectionOn, inLineSelection, type SearchHit } from "./overlays"
 import type { UnifiedEnv } from "./unified-env"
@@ -82,7 +84,7 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
   const view = env.props
   // Memoised to a boolean, so a selection moving elsewhere leaves this line's colours alone.
   const selected = createMemo(() => inLineSelection(view.selection, props.index))
-  const colors = createMemo(() => unifiedLineColors(props.line.type, selected(), props.atCursor))
+  const colors = createMemo(() => unifiedLineColors(tintType(props.line) ?? props.line.type, selected(), props.atCursor))
   const origin = () => env.originOf(props.index)
   const blameWidth = () => env.blameWidthOf(props.index)
   const sign = () => env.signs().get(props.index)
@@ -111,8 +113,8 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
     return buildSegments(props.line.content, {
       spans: view.lineSpans.spans(view.mapping.allLines, props.index),
       words: env.words().get(props.index),
-      wordSide: props.line.type === "deletion" ? "removed" : "added",
-      baseFg: theme.text,
+      wordSide: wordType(props.line) === "deletion" ? "removed" : "added",
+      baseFg: isInnerChrome(props.line) ? theme.overlay1 : theme.text,
       rowBg: colors().content ?? theme.base,
       search: { matches: hits() },
       selection: charSelection(),
@@ -160,6 +162,7 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
             return [...sliceSegments(full(), view.column, width - 1), rightMarker(under, column, flash())]
           }
           const gutterMark = () => (continuation ? "↳" : markers().left ? "‹" : null)
+          const outerChange = () => (gutterMark() ? undefined : outerChangeFg(props.line))
           return (
             <box
               flexDirection="row"
@@ -181,11 +184,16 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
                   {(!continuation && env.blameCells().get(props.index)) || " ".repeat(blameWidth())}
                 </text>
               </Show>
-              <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={colors().gutter}>
+              <text wrapMode="none" flexShrink={0} fg={outerChangeFg(props.line) ?? theme.overlay0} bg={colors().gutter}>
                 {(continuation ? "" : lineNumber(props.line)).padStart(origin() - SIGN_CELLS - blameWidth() - 1)}
               </text>
-              <text wrapMode="none" flexShrink={0} fg={gutterMark() ? theme.surface2 : theme.overlay0} bg={colors().gutter}>
-                {gutterMark() ?? " "}
+              <text
+                wrapMode="none"
+                flexShrink={0}
+                fg={outerChange() ?? (gutterMark() ? theme.surface2 : theme.overlay0)}
+                bg={colors().gutter}
+              >
+                {gutterMark() ?? (outerChange() ? OUTER_CHANGE_BAR : " ")}
               </text>
               <SegmentTexts segments={segments()} />
             </box>

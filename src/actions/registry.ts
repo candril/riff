@@ -367,6 +367,14 @@ export const actions: Action[] = [
     category: "view",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
+  {
+    id: "toggle-nested-diff",
+    label: "Toggle Nested Diff",
+    description: "Read the .diff or .patch file at the cursor as the diff it contains, or show its plain diff",
+    command: "gchord.toggleNested",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
 
   // Folds
   {

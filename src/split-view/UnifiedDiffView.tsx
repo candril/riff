@@ -5,7 +5,7 @@ import { markSigns } from "../features/marks/signs"
 import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
 import { unifiedBlameCells, type BlameColumns } from "./blame-cells"
-import { FileLabel, FullRow } from "./FullRow"
+import { FileLabel, FullRow, readAs } from "./FullRow"
 import { flashByLine, searchByLine } from "./overlays"
 import { mountedRows } from "./held-rows"
 import { hiddenUnless } from "./hidden-unless"
@@ -108,7 +108,7 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
               env={env}
               filename={props.mapping.getLine(sticky()!)?.filename ?? ""}
               collapsed={props.mapping.getLine(sticky()!)?.isCollapsed ?? false}
-              rendered={props.mapping.getLine(sticky()!)?.rendered}
+              readAs={readAs(props.mapping.getLine(sticky()!))}
               mark={env.marks().get(sticky()!)?.[0]?.letter}
             />
           </box>

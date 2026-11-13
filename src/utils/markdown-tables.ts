@@ -15,6 +15,7 @@
  * The original text is kept (`sourceContent` on the mapping line) so `y`
  * still yanks what is in the file.
  */
+import { innerFilename } from "../features/nested-diff/nest"
 
 export const MARKDOWN_FILE = /\.(md|markdown|mdx)$/i
 const FENCE = /^(```|~~~)/
@@ -30,7 +31,12 @@ export interface AlignableLine {
   type: string
   content: string
   filename?: string
+  /** Set on a nested file's line, whose text is of the file its inner diff is of (spec 116). */
+  inner?: string
 }
+
+const isMarkdownLine = (line: AlignableLine) =>
+  MARKDOWN_FILE.test(line.inner ? innerFilename(line.filename ?? "") : (line.filename ?? ""))
 
 /** A line whose displayed text should change, by index into the input. */
 export interface AlignedRow {
@@ -67,7 +73,7 @@ export function tableBlocks(lines: readonly AlignableLine[]): number[][] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
     const continues =
-      MARKDOWN_FILE.test(line.filename ?? "") &&
+      isMarkdownLine(line) &&
       CONTENT_TYPES.has(line.type) &&
       !fenced.has(i) &&
       line.content.trim().startsWith("|") &&

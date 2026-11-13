@@ -44,6 +44,7 @@ const SHOWN: Record<string, string> = {
   "toggle-wrap": "zw",
   "peek-line": "gl",
   "toggle-fold": "za",
+  "toggle-nested-diff": "gN",
   "open-fold": "zo",
   "close-fold": "zc",
   "expand-all-folds": "zR",

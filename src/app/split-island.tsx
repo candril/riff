@@ -1,4 +1,5 @@
 import type { CliRenderer } from "@opentui/core"
+import { shownType } from "../diff-rows/shown-type"
 import { Show, batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { blameWidthIn, type BlameColumns } from "../split-view/blame-cells"
@@ -219,7 +220,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
       const props = inputs.value
       const shown = props?.mapping.getLine(line)
       if (!props) return { startCol: 0, endCol: 0 }
-      const type = shown?.type
+      const type = shown && shownType(shown)
       // A rendered row is drawn in the new half alone, like an addition.
       const right = type === "addition" || shown?.rendered === true
       return windowOn(line, type === "deletion" ? "left" : right ? "right" : props.side)

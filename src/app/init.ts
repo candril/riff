@@ -48,6 +48,7 @@ import type { BlockFoldsState } from "../features/folds/block-folds-state"
 import type { FileFoldsState } from "../features/folds/file-folds-state"
 import type { RenderedMarkdownState } from "../features/rendered-markdown/state"
 import type { RenderedRow } from "../features/rendered-markdown/render"
+import type { NestedDiffState } from "../features/nested-diff/state"
 
 export interface InitOptions {
   mode: AppMode
@@ -264,6 +265,7 @@ export function buildLineMapping(
   blockFolds: Pick<BlockFoldsState, "collapsed">,
   fileFolds: Pick<FileFoldsState, "collapsed">,
   rendered?: Pick<RenderedMarkdownState, "files" | "rowsFor">,
+  nested?: Pick<NestedDiffState, "raw">,
 ): DiffLineMapping {
   const mappingMode = state.selectedFileIndex === null ? "all" : "single"
 
@@ -289,6 +291,7 @@ export function buildLineMapping(
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
     outsideDiff: state.fileMode,
     renderedFiles,
+    ...(nested ? { rawNestedFiles: nested.raw() } : {}),
     // Wrapped, the padding is worse than useless: it is the widest cell in
     // the table spent on every row, wrapping into blank lines, and the
     // column it was lining up has been broken across rows anyway.

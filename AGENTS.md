@@ -140,6 +140,7 @@ tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
 `src/features/visit/state.ts`,
 `src/features/review-preview/pending-state.ts`,
 `src/features/rendered-markdown/state.ts`,
+`src/features/nested-diff/state.ts`,
 `src/features/open-pr/state.ts` and
 `src/features/toast/state.ts` are the examples. The frame
 pass reads each factory's accessors into the `Frame` (all but the
@@ -307,6 +308,7 @@ src/
 ├── features/             # one directory per feature: index.ts, plus keys.ts / input.ts / handlers.ts
 │   ├── marks/            # global marks (spec 101)
 │   ├── open-pr/          # the screen `riff` shows with nothing to review (spec 112)
+│   ├── nested-diff/      # .diff and .patch files read as the diff they contain (spec 116)
 │   ├── deep-link/        # a PR link's fragment, followed; the socket `riff goto` sends links to (spec 115)
 │   └── chat/             # the chat column's state, keys and components (spec 102)
 ├── vim-diff/             # line mapping, cursor, motions, search, flash, word diff
@@ -411,6 +413,7 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Create/Edit PR | gP | Create PR (local) or edit PR (PR mode) |
 | Open in Browser | go | Open PR in browser |
 | Toggle Rendered Markdown | gR | The markdown file at the cursor rendered in place of its diff (spec 111); gR again brings the diff back |
+| Toggle Nested Diff | gN | A `.diff` or `.patch` file read as the diff it contains, or a deleted file against the `.diff` that replaced it (spec 116); gN again shows the plain diff |
 | Blame | gB | Who last changed the cursor's line; from its peek, go opens the commit or PR and y copies the sha |
 | Blame Column | gb | Who last changed each line of the file under the cursor, as a column beside the line numbers |
 | Open in riff board | — | Open the PR in riff board (palette only) |

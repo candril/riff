@@ -9,6 +9,8 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { Comment } from "../types"
 import type { DiffLine, CommentAnchor, DiffLineMappingOptions, RenderedLine } from "./types"
 import type { LineSource } from "./line-source"
+import { isNestedDiffFile, nestLines } from "../features/nested-diff/nest"
+import { findPairs, pairedLines, pairedRows, type PairedFile } from "../features/nested-diff/pairing"
 
 export function anchorSide(type: DiffLine["type"], pane: "left" | "right" | undefined): CommentAnchor["side"] | null {
   if (type === "deletion") return pane === "right" ? null : "LEFT"
@@ -32,6 +34,8 @@ export class DiffLineMapping implements LineSource {
   private visibleFiles: ReadonlySet<string> | undefined
   private outsideDiff: boolean
   private renderedFiles: ReadonlyMap<string, readonly RenderedLine[]>
+  private rawNested: ReadonlySet<string>
+  private paired: ReadonlyMap<string, PairedFile>
 
   constructor(
     files: DiffFile[],
@@ -46,12 +50,17 @@ export class DiffLineMapping implements LineSource {
     this.visibleFiles = options?.visibleFiles
     this.outsideDiff = options?.outsideDiff ?? false
     this.renderedFiles = options?.renderedFiles ?? new Map()
-    
+    this.rawNested = options?.rawNestedFiles ?? new Set()
+    this.paired = this.pairsOf(files)
+
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
     } else if (mode === "all") {
       this.lines = this.parseAllFiles(files)
     }
+
+    // Before the tables: a nested file's table rows line up once their inner markers are gone.
+    this.lines = nestLines(this.lines, files, (filename) => this.readsNested(filename))
 
     if (options?.alignMarkdownTables !== false) {
       this.alignTables()
@@ -77,7 +86,7 @@ export class DiffLineMapping implements LineSource {
     const alignable = this.lines.map((line) => (line.rendered ? { ...line, type: "rendered" } : line))
     for (const { index, content } of alignMarkdownTables(alignable)) {
       const line = this.lines[index]!
-      this.lines[index] = { ...line, content, sourceContent: line.content }
+      this.lines[index] = { ...line, content, sourceContent: line.sourceContent ?? line.content }
     }
   }
 
@@ -205,13 +214,15 @@ export class DiffLineMapping implements LineSource {
     if (!line || !this.isCommentable(visualIndex)) return null
     if (!line.filename) return null
 
-    const side = anchorSide(line.type, pane)
+    // A nested line is drawn in the half its inner side gives it, which says
+    // nothing of where it is in the file under review (spec 116).
+    const side = line.inner ? (line.type === "deletion" ? "LEFT" : "RIGHT") : anchorSide(line.type, pane)
     if (!side) return null
     const lineNum = side === "LEFT" ? line.oldLineNum : line.newLineNum
     if (lineNum === undefined) return null
 
     return {
-      filename: line.filename,
+      filename: side === "RIGHT" && line.pairedFile ? line.pairedFile : line.filename,
       line: lineNum,
       side,
       // Two different refusals used to share one answer of `null`: riff has
@@ -301,6 +312,7 @@ export class DiffLineMapping implements LineSource {
         filename: file.filename,
         isCollapsed,  // Mark if this file is collapsed (for rendering)
         ...(this.renderedFiles.has(file.filename) ? { rendered: true as const } : {}),
+        ...this.pairedHeader(file.filename),
       })
 
       // Skip diff content if file is collapsed
@@ -340,6 +352,8 @@ export class DiffLineMapping implements LineSource {
   ): DiffLine[] {
     const rendered = this.renderedFiles.get(filename)
     if (rendered) return this.parseRendered(content, rendered, fileIndex, filename)
+    const paired = this.paired.get(filename)
+    if (paired) return pairedLines(paired, fileIndex, filename)
 
     const lines: DiffLine[] = []
     const rawLines = content.split("\n")
@@ -417,19 +431,9 @@ export class DiffLineMapping implements LineSource {
     }
 
     for (const rawLine of rawLines) {
-      // Skip diff --git header lines (we add our own file header in all-files mode)
-      if (rawLine.startsWith("diff --git")) continue
-      if (rawLine.startsWith("index ")) continue
-      if (rawLine.startsWith("--- ")) continue
-      if (rawLine.startsWith("+++ ")) continue
-      if (rawLine.startsWith("new file")) continue
-      if (rawLine.startsWith("deleted file")) continue
-      if (rawLine.startsWith("similarity index")) continue
-      if (rawLine.startsWith("rename from")) continue
-      if (rawLine.startsWith("rename to")) continue
-
       // Hunk header - convert to divider (subtle separator between chunks)
       const hunkMatch = rawLine.match(
+
         /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/
       )
       if (hunkMatch) {
@@ -457,6 +461,9 @@ export class DiffLineMapping implements LineSource {
         continue
       }
 
+      // The file's own header lines come before the first hunk, and riff draws
+      // its own. Inside a hunk `--- x` is the removal of `-- x`: a SQL
+      // comment, or a nested diff's header (spec 116).
       if (!inHunk) continue
 
       // Content lines
@@ -561,6 +568,38 @@ export class DiffLineMapping implements LineSource {
         filename,
       }
     })
+  }
+
+  /** Whether a `.diff` or `.patch` file is read as the diff it contains (spec 116). */
+  private readsNested(filename: string): boolean {
+    return isNestedDiffFile(filename) && !this.rawNested.has(filename) && !this.renderedFiles.has(filename)
+  }
+
+  /**
+   * The deleted files drawn against the added `X.diff` beside them (spec
+   * 116), with their rows. A pair is read only while the `.diff` itself is.
+   */
+  private pairsOf(files: readonly DiffFile[]): Map<string, PairedFile> {
+    const paired = new Map<string, PairedFile>()
+    if (this.outsideDiff) return paired
+    for (const [original, nested] of findPairs(files)) {
+      if (this.rawNested.has(original) || !this.readsNested(nested.filename)) continue
+      const file = files.find((candidate) => candidate.filename === original)!
+      const rows = pairedRows(file, nested)
+      if (rows) paired.set(original, rows)
+    }
+    return paired
+  }
+
+  private pairedHeader(filename: string): Pick<DiffLine, "pairedFile" | "pairedLabel"> {
+    const paired = this.paired.get(filename)
+    if (!paired) return {}
+    return { pairedFile: paired.nested, ...(paired.label ? { pairedLabel: paired.label } : {}) }
+  }
+
+  /** Whether a deleted file is drawn against its added `.diff` (spec 116). */
+  isPaired(filename: string): boolean {
+    return this.paired.has(filename)
   }
 
   /**

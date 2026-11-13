@@ -18,6 +18,7 @@ import * as externalTools from "../features/external-tools"
 import * as followLink from "../features/follow-link"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import { toggleRendered, type ToggleRenderedDeps } from "../features/rendered-markdown/toggle"
+import { toggleNested, type ToggleNestedDeps } from "../features/nested-diff/toggle"
 import { openUrl } from "../utils/open-url"
 
 export interface GChordDeps {
@@ -42,6 +43,7 @@ export interface GChordDeps {
   blamePeek: Pick<BlamePeekState, "open">
   vimHandler: Pick<VimMotionHandler, "jumpToMatchingBracket">
   renderedMarkdown: ToggleRenderedDeps
+  nestedDiff: ToggleNestedDeps
 }
 
 // Both spellings of a shifted letter are accepted because terminals differ
@@ -80,6 +82,8 @@ export const G_SEQUENCES = {
   gm: "matchBracket",
   "gR!": "toggleRendered",
   "gr!": "toggleRendered",
+  "gN!": "toggleNested",
+  "gn!": "toggleNested",
   gr: "refresh",
   gg: "goToTop",
   "gG!": "goToBottom",
@@ -113,6 +117,7 @@ export const G_PALETTE_KEYS: Partial<Record<GCommand, string>> = {
   editOrCreatePr: "gP",
   toggleLinePeek: "gl",
   toggleRendered: "gR",
+  toggleNested: "gN",
   refresh: "gr",
 }
 
@@ -193,6 +198,8 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
     }),
     // A markdown file as its reader sees it, in its diff's place (spec 111).
     toggleRendered: taking(() => void toggleRendered(deps.renderedMarkdown)),
+    // A .diff or .patch file as the diff it contains, or its plain diff (spec 116).
+    toggleNested: taking(() => toggleNested(deps.nestedDiff)),
     refresh: taking(() => void deps.refreshContext.handleRefresh()),
     goToTop: taking(() => folds.handleGoToTop(deps.foldsContext)),
     goToBottom: taking(() => folds.handleGoToBottom(deps.foldsContext)),

@@ -20,6 +20,7 @@ import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFileFoldsState } from "../features/folds/file-folds-state"
 import { createRenderedMarkdownState } from "../features/rendered-markdown/state"
+import { createNestedDiffState } from "../features/nested-diff/state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -99,8 +100,9 @@ export async function mountApp(
   const blockFolds = createBlockFoldsState()
   const fileFolds = createFileFoldsState()
   const renderedMarkdown = createRenderedMarkdownState()
+  const nestedDiff = createNestedDiffState()
   const chatColumnState = createChatColumnState()
-  const buildMapping = () => buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown)
+  const buildMapping = () => buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown, nestedDiff)
   let mapping = buildMapping()
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(parse)
@@ -323,6 +325,8 @@ export async function mountApp(
     fileFolds,
     /** The markdown files drawn rendered, which the mapping reads and gR writes as app.ts's do. */
     renderedMarkdown,
+    /** The nested files shown raw, which the mapping reads and gN writes as app.ts's do. */
+    nestedDiff,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */

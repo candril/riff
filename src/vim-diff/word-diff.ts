@@ -7,6 +7,7 @@
  * actually looking for.
  */
 
+import { wordType } from "../diff-rows/shown-type"
 import type { DiffLineMapping } from "./line-mapping"
 import type { DiffLine } from "./types"
 
@@ -300,7 +301,10 @@ function flatten(lines: readonly string[]): string {
  * padding to land right. Neither is where this earns anything.
  */
 function readsAsSource(line: DiffLine): boolean {
-  return line.sourceContent === undefined && line.blockFoldId === undefined
+  if (line.blockFoldId !== undefined) return false
+  // A nested line's text is the file's without its inner marker (spec 116).
+  if (line.inner) return line.content === line.sourceContent?.slice(1)
+  return line.sourceContent === undefined
 }
 
 /**
@@ -314,19 +318,25 @@ export function computeWordDiff(mapping: DiffLineMapping): Map<number, WordSpan[
   const count = mapping.lineCount
   let row = 0
 
+  // A nested file's lines pair across the diff they contain (spec 116).
+  // A line the review changed pairs only with another the review changed,
+  // never with an inner removal beside it.
+  const typeAt = (at: number) => wordType(mapping.getLine(at))
+  const levelAt = (at: number) => (mapping.getLine(at)?.outerChange ? "outer" : "inner")
   while (row < count) {
-    if (mapping.getLine(row)?.type !== "deletion") {
+    if (typeAt(row) !== "deletion") {
       row++
       continue
     }
 
+    const level = levelAt(row)
     const deletions: number[] = []
-    while (row < count && mapping.getLine(row)?.type === "deletion") deletions.push(row++)
+    while (row < count && typeAt(row) === "deletion" && levelAt(row) === level) deletions.push(row++)
     // `\ No newline at end of file` belongs to neither run, and must not
     // end the change before the additions are reached.
-    while (row < count && mapping.getLine(row)?.type === "no-newline") row++
+    while (row < count && typeAt(row) === "no-newline") row++
     const additions: number[] = []
-    while (row < count && mapping.getLine(row)?.type === "addition") additions.push(row++)
+    while (row < count && typeAt(row) === "addition" && levelAt(row) === level) additions.push(row++)
 
     const said = (rows: number[]) => rows.map((row) => mapping.getLine(row)!.content)
     if (onlyRewrapped(said(deletions), said(additions))) continue

@@ -34,6 +34,7 @@ import type { BlockFoldsState } from "../folds/block-folds-state"
 import type { FileFoldsState } from "../folds/file-folds-state"
 import type { ChatColumnState } from "../chat/column-state"
 import type { RenderedMarkdownState } from "../rendered-markdown/state"
+import type { NestedDiffState } from "../nested-diff/state"
 
 export interface AnotherReviewFeatures {
   help: Pick<HelpState, "close">
@@ -62,6 +63,7 @@ export interface AnotherReviewFeatures {
   fileFolds: Pick<FileFoldsState, "clear">
   chatColumn: Pick<ChatColumnState, "hide">
   renderedMarkdown: Pick<RenderedMarkdownState, "clear">
+  nestedDiff: Pick<NestedDiffState, "clear">
 }
 
 export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
@@ -104,4 +106,6 @@ export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
   features.chatColumn.hide()
   // The next review opens every file on its diff.
   features.renderedMarkdown.clear()
+  // Its filenames name files in the last review.
+  features.nestedDiff.clear()
 }

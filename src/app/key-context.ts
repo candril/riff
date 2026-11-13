@@ -63,6 +63,7 @@ import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { BlockFoldsState } from "../features/folds/block-folds-state"
 import type { FileFoldsState } from "../features/folds/file-folds-state"
 import type { RenderedMarkdownState } from "../features/rendered-markdown/state"
+import type { NestedDiffState } from "../features/nested-diff/state"
 import type { FileContentState } from "../features/file-content/state"
 
 export interface AppKeyContext {
@@ -192,6 +193,8 @@ export interface AppKeyContext {
   fileFolds: FileFoldsState
   /** The markdown files drawn rendered, the same instance the line mapping reads (spec 111). */
   renderedMarkdown: RenderedMarkdownState
+  /** The nested files shown raw, the same instance the line mapping reads (spec 116). */
+  nestedDiff: NestedDiffState
   /** Both versions of each loaded file, the same instance the line mapping reads. */
   fileContent: Pick<FileContentState, "entry" | "generation">
   /** Fetch a file's versions into fileContent; settles once they are there. */

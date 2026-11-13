@@ -1,6 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import type { SimpleHighlight } from "@opentui/core"
 import { renderMarkdown } from "../features/rendered-markdown/render"
+import { MODIFIED_NESTED } from "../features/nested-diff/fixtures"
 import { parseDiff } from "../utils/diff-parser"
 import { FileParses, parseHighlights } from "../vim-diff/file-parses"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -333,5 +334,27 @@ describe("a markdown file's fenced ts block, parsed for real", () => {
     await landed
 
     expectTsColours(spans.spans(rows, indexOf(rows, holder)), spans.spans(rows, indexOf(rows, "```ts")))
+  })
+})
+
+describe("a nested file's spans (spec 116)", () => {
+  test("come from one parse per side of each level, in the inner file's language", async () => {
+    const { calls, parse } = deferredParse()
+    const spans = new LineSpans(new FileParses(parse), parse)
+    const lines = new DiffLineMapping(parseDiff(MODIFIED_NESTED), "all", undefined, { alignMarkdownTables: false }).allLines
+    for (let index = 0; index < lines.length; index++) spans.spans(lines, index)
+
+    const documents = calls.map((call) => [call.filetype, call.text])
+    expect(documents).toEqual([
+      // The new version's contract, as the line the review added there reads it.
+      ["markdown", "# Fetch\n\n`GET /newer`\n| a | b |\nErrors: none\n"],
+      // The new version's observed side.
+      ["markdown", "# Fetch\n\n`GET /old`\n| a | b |\nErrors: none\n"],
+      // The old version's contract, for the line the review removed from it.
+      ["markdown", "# Fetch\n\n`GET /new`\n| a | b |\n"],
+      ["markdown", "# Fetch\n\n`GET /old`\n| a | b |\nErrors: none\n"],
+    ])
+    // The inner diff's own header and chrome are not text to colour.
+    expect(calls.every((call) => !call.text.includes("+++"))).toBe(true)
   })
 })

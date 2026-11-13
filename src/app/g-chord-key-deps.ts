@@ -45,6 +45,17 @@ export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
       toast: ctx.toast,
       render: ctx.render,
     },
+    nestedDiff: {
+      getState: ctx.getState,
+      getMapping: ctx.getLineMapping,
+      getVimState: ctx.getVimState,
+      setVimState: ctx.setVimState,
+      nested: ctx.nestedDiff,
+      rebuildLineMapping: ctx.rebuildLineMapping,
+      cursorView: ctx.cursorView,
+      toast: ctx.toast,
+      render: ctx.render,
+    },
   }
 }
 

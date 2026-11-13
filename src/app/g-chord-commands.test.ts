@@ -40,6 +40,8 @@ const G_SPELLINGS = {
   gm: "matchBracket",
   "gR!": "toggleRendered",
   "gr!": "toggleRendered",
+  "gN!": "toggleNested",
+  "gn!": "toggleNested",
   gr: "refresh",
   gg: "goToTop",
   "gG!": "goToBottom",

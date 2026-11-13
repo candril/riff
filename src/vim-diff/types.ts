@@ -91,7 +91,24 @@ export interface DiffLine {
   renderedPart?: number
   /** The last source line the row stands for, when it stands for a block. */
   renderedLastLine?: number
+
+  /** What the line is in the diff it contains, for a `.diff` or `.patch`
+   *  file read nested (spec 116). `type` stays the outer diff's. */
+  inner?: InnerLineType
+  /** What the review did to a nested line, in a modified file only: in an
+   *  added or deleted one every line would say the same. */
+  outerChange?: "addition" | "deletion"
+  /** A nested file's header, read nested (spec 116). */
+  nested?: true
+  /** The added `X.diff` this deleted `X` is drawn against (spec 116): on a
+   *  row, the file its `newLineNum` counts in; on the header, the pairing. */
+  pairedFile?: string
+  /** What the inner diff calls its new side, on a paired file's header. */
+  pairedLabel?: string
 }
+
+/** What a line of a nested file is in the diff it contains (spec 116). */
+export type InnerLineType = "context" | "addition" | "deletion" | "old-header" | "new-header" | "meta"
 
 /** A row of a fenced code block, and the block it is parsed with (spec 111). */
 export interface RenderedCode {
@@ -218,4 +235,7 @@ export interface DiffLineMappingOptions {
   outsideDiff?: boolean
   /** Files drawn rendered in place of their hunks, with their rows (spec 111). */
   renderedFiles?: ReadonlyMap<string, readonly RenderedLine[]>
+  /** `.diff` and `.patch` files, and deleted files paired with one, shown
+   *  as their plain diff rather than read nested (spec 116). */
+  rawNestedFiles?: ReadonlySet<string>
 }

@@ -29,6 +29,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["zz / zt / zb", "Cursor row to centre / top / bottom"],
       ["gl", "Peek the line, its table, or a diagram"],
       ["gR", "Rendered markdown / back to the diff"],
+      ["gN", "A .diff file as the diff it contains / its plain diff"],
       ["gB", "Who last changed this line"],
       ["zw", "Toggle soft wrap"],
       ["gb", "Blame column for this file"],

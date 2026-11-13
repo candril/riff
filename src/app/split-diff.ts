@@ -1,4 +1,5 @@
 import type { CliRenderer } from "@opentui/core"
+import { shownType } from "../diff-rows/shown-type"
 import { commentScope, type CommentScope } from "../diff-rows/comment-scope"
 import { sideOf } from "../diff-rows/line-spans"
 import { RowLineSource, rowOfLine, type SplitRows } from "../diff-rows/row-source"
@@ -164,7 +165,10 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     /** A removed line opens in the old pane, anything else in the new one. */
     enter(): void {
       const mapping = deps.getMapping()
-      source().setSide(sideOf(mapping.allLines, deps.getVimState().line) === "old" ? "left" : "right")
+      const line = mapping.getLine(deps.getVimState().line)
+      // A nested line opens in the half its inner side gives it (spec 116).
+      const old = line?.inner ? shownType(line) === "deletion" : sideOf(mapping.allLines, deps.getVimState().line) === "old"
+      source().setSide(old ? "left" : "right")
       island.resetColumns()
     },
     syncPane,

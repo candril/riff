@@ -2,6 +2,7 @@ import type { SimpleHighlight } from "@opentui/core"
 import { lineStarts } from "../vim-diff/file-highlights"
 import { parseHighlights, type FileParses, type Parse } from "../vim-diff/file-parses"
 import { getFiletypeFromPath } from "../vim-diff/filetype"
+import { innerFilename } from "../features/nested-diff/nest"
 import { withoutInjectionContainers } from "../vim-diff/injection-containers"
 import { dropSplitKeywords } from "../vim-diff/split-keywords"
 import type { DiffLine, RenderedCode } from "../vim-diff/types"
@@ -22,6 +23,15 @@ const inRun = (line: DiffLine | undefined, filename: string) =>
 // Context belongs to both texts; a split view draws it in both halves.
 const onSide = (line: DiffLine, side: TextSide) =>
   line.type === "context" || line.type === (side === "new" ? "addition" : "deletion")
+
+const isInnerText = (line: DiffLine) => line.inner === "context" || line.inner === "addition" || line.inner === "deletion"
+
+const onInnerSide = (line: DiffLine, side: TextSide) =>
+  line.inner === "context" || line.inner === (side === "new" ? "addition" : "deletion")
+
+/** The one document of the four a nested line is coloured from: its own version, on each level. */
+const ownDocument = (line: DiffLine, outer: TextSide, inner: TextSide) =>
+  (line.type === "deletion" ? "old" : "new") === outer && (line.inner === "deletion" ? "old" : "new") === inner
 
 /** The half of a split view a line is drawn in, or undefined for a full-width row. */
 export function sideOf(lines: readonly DiffLine[], index: number): TextSide | undefined {
@@ -61,6 +71,7 @@ export class LineSpans {
   private disposed = false
   private fileLines = new WeakMap<readonly SimpleHighlight[], Map<number, readonly CaptureSpan[]>>()
   private slots = new WeakMap<readonly DiffLine[], Record<TextSide, Map<number, RunSlot | null>>>()
+  private nestedSlots = new WeakMap<readonly DiffLine[], Map<number, RunSlot | null>>()
   // Keyed by text, so a fold or an expansion that rebuilds the lines keeps the parse.
   private fragments = new Map<string, "pending" | readonly (readonly CaptureSpan[])[]>()
 
@@ -78,6 +89,7 @@ export class LineSpans {
     if (line.type === "no-newline") return NO_SPANS
     if (line.renderedCode) return this.codeSpans(line.renderedCode, line.renderedSpans ?? NO_SPANS)
     if (line.renderedSpans) return line.renderedSpans
+    if (line.inner) return this.nestedSpans(lines, index)
 
     const file = line.filename ? this.parses.get(line.filename)?.[side] : undefined
     if (file?.highlights) {
@@ -86,7 +98,23 @@ export class LineSpans {
       return this.indexFile(file.highlights, file.content).get(fileLine) ?? NO_SPANS
     }
 
-    const slot = this.slotOf(lines, index, side)
+    return this.fragmentSpans(this.slotOf(lines, index, side), getFiletypeFromPath(line.filename ?? ""))
+  }
+
+  /**
+   * A nested file's text is parsed as the file its inner diff is of, one
+   * document per side (spec 116): the file under review has a version on each
+   * side of the review, and the inner diff a side of each of those. A fence or
+   * a table on one side would bleed into the other parsed as one.
+   */
+  private nestedSpans(lines: readonly DiffLine[], index: number): readonly CaptureSpan[] | undefined {
+    const line = lines[index]!
+    if (line.inner !== "context" && line.inner !== "addition" && line.inner !== "deletion") return NO_SPANS
+    const filetype = getFiletypeFromPath(innerFilename(line.filename ?? ""))
+    return this.fragmentSpans(filetype ? this.nestedSlotOf(lines, index) : null, filetype)
+  }
+
+  private fragmentSpans(slot: RunSlot | null, filetype: string | undefined): readonly CaptureSpan[] | undefined {
     if (!slot) return NO_SPANS
     const cached = this.fragments.get(slot.key)
     if (cached === "pending") return undefined
@@ -95,7 +123,6 @@ export class LineSpans {
       return cached[slot.at] ?? NO_SPANS
     }
 
-    const filetype = getFiletypeFromPath(slot.filename)
     if (!filetype) {
       this.store(slot.key, [])
       return NO_SPANS
@@ -159,6 +186,38 @@ export class LineSpans {
     }
     const key = `${filename}\0${side}\0${text}`
     members.forEach((member, at) => slots.set(member, { key, text, filename, at }))
+    return slots.get(index) ?? null
+  }
+
+  private nestedSlotOf(lines: readonly DiffLine[], index: number): RunSlot | null {
+    const slots = this.nestedSlots.get(lines) ?? new Map<number, RunSlot | null>()
+    this.nestedSlots.set(lines, slots)
+    const known = slots.get(index)
+    if (known !== undefined) return known
+
+    const filename = lines[index]!.filename ?? ""
+    let start = index
+    while (start > 0 && lines[start - 1]?.filename === filename) start--
+    let end = index
+    while (lines[end + 1]?.filename === filename) end++
+
+    for (const outer of ["old", "new"] as const) {
+      for (const inner of ["old", "new"] as const) {
+        const members: number[] = []
+        let text = ""
+        for (let i = start; i <= end; i++) {
+          const member = lines[i]!
+          if (!isInnerText(member) || !onSide(member, outer) || !onInnerSide(member, inner)) continue
+          slots.set(i, slots.get(i) ?? null)
+          members.push(i)
+          text += `${member.content}\n`
+        }
+        const key = `nested\0${filename}\0${outer}${inner}\0${text}`
+        members.forEach((member, at) => {
+          if (ownDocument(lines[member]!, outer, inner)) slots.set(member, { key, text, filename, at })
+        })
+      }
+    }
     return slots.get(index) ?? null
   }
 

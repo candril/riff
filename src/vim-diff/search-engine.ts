@@ -92,10 +92,13 @@ export class SearchEngine {
    * user cannot see the match in.
    */
   diffContainsMatch(diff: string, regex: RegExp): boolean {
+    // Before the first hunk `+++` and `---` are the file's header; inside one,
+    // lines starting `++` or `--` (spec 116).
+    let inHunk = false
     for (const raw of diff.split("\n")) {
+      if (raw.startsWith("@@")) inHunk = true
       const marker = raw[0]
-      if (marker !== " " && marker !== "+" && marker !== "-") continue
-      if (raw.startsWith("+++") || raw.startsWith("---")) continue
+      if (!inHunk || (marker !== " " && marker !== "+" && marker !== "-")) continue
       regex.lastIndex = 0
       if (regex.test(raw.slice(1))) return true
     }
