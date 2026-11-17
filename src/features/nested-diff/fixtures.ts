@@ -35,6 +35,25 @@ export const MODIFIED_NESTED = lines(
   "+ Errors: none",
 )
 
+/**
+ * The same file made a patch other tools read: an `@@` line under the header
+ * pair, and each empty line of the document the single space it is in a diff.
+ */
+export const REAL_PATCH = lines(
+  "diff --git a/Fetch.md.diff b/Fetch.md.diff",
+  "--- a/Fetch.md.diff",
+  "+++ b/Fetch.md.diff",
+  "@@ -1,6 +1,7 @@",
+  " --- observed",
+  " +++ contract",
+  "+@@ -1,3 +1,3 @@",
+  "  # Fetch",
+  "-",
+  "+ ",
+  " -`GET /old`",
+  " +`GET /new`",
+)
+
 /** A document turning into its diff: the old file deleted, its diff added beside it. */
 export const CONVERSION = lines(
   "diff --git a/Fetch.md b/Fetch.md",

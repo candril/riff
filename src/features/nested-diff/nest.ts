@@ -100,12 +100,48 @@ export function nestLines(
       }
     }
   }
-  return out
+  return mergeUnchanged(out)
 
   function markHeader(line: DiffLine): DiffLine {
     if (line.type !== "file-header" || !line.filename || line.rendered || line.pairedFile) return line
     return nested(line.filename) ? { ...line, nested: true } : line
   }
+}
+
+const reads = (line: DiffLine) => `${line.inner}\0${line.content}`
+
+/**
+ * An outer removal and addition that read as the same inner line are one
+ * context row: an empty inner context line gaining the space editors strip
+ * (`""` to `" "`) changes the file, not the diff it contains. Each run of
+ * removals pairs in order with the additions after it; the row stands where
+ * the removal stood and keeps both numbers.
+ */
+function mergeUnchanged(lines: DiffLine[]): DiffLine[] {
+  const dropped = new Set<number>()
+  let at = 0
+  while (at < lines.length) {
+    if (!lines[at]!.outerChange || lines[at]!.type !== "deletion") {
+      at++
+      continue
+    }
+    const removals: number[] = []
+    while (lines[at]?.outerChange && lines[at]!.type === "deletion") removals.push(at++)
+    const additions: number[] = []
+    while (lines[at]?.outerChange && lines[at]!.type === "addition") additions.push(at++)
+    removals.forEach((removal, n) => {
+      const addition = additions[n]
+      if (addition === undefined) return
+      const old = lines[removal]!
+      const now = lines[addition]!
+      if (old.filename !== now.filename || reads(old) !== reads(now)) return
+      const { outerChange: _, ...rest } = now
+      lines[removal] = { ...rest, type: "context", rawLine: ` ${now.sourceContent}`, oldLineNum: old.oldLineNum }
+      dropped.add(addition)
+    })
+  }
+  if (dropped.size === 0) return lines
+  return lines.filter((_, index) => !dropped.has(index)).map((line, visualIndex) => ({ ...line, visualIndex }))
 }
 
 /** Where a line lives in the inner diff: its old side, its new side, or both. */

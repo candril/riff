@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { parseDiff } from "../../utils/diff-parser"
 import { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { DiffLine } from "../../vim-diff/types"
-import { ADDED_NESTED, MODIFIED_NESTED } from "./fixtures"
+import { ADDED_NESTED, MODIFIED_NESTED, REAL_PATCH } from "./fixtures"
 import { innerFilename, isNestedDiffFile } from "./nest"
 
 const contentRows = (mapping: DiffLineMapping) =>
@@ -86,6 +86,38 @@ describe("a modified nested file", () => {
     const removed = rows.findIndex((line) => line.content === "Errors: none" && line.type === "deletion")
     // An inner removal of a line the review removed: drawn left, and LEFT in the file.
     expect(mapping.getCommentAnchor(removed, "left")).toMatchObject({ side: "LEFT", line: 8 })
+  })
+})
+
+describe("a nested file gaining the space editors strip", () => {
+  const mapping = new DiffLineMapping(parseDiff(REAL_PATCH), "all", undefined, { alignMarkdownTables: false })
+
+  test("an empty line becoming a space is one context row: the inner diff reads the same", () => {
+    expect(contentRows(mapping).map(shape)).toEqual([
+      ["old-header", "--- observed", null],
+      ["new-header", "+++ contract", null],
+      ["meta", "@@ -1,3 +1,3 @@", "addition"],
+      ["context", "# Fetch", null],
+      ["context", "", null],
+      ["deletion", "`GET /old`", null],
+      ["addition", "`GET /new`", null],
+    ])
+  })
+
+  test("the merged row keeps both numbers and the file's new text, and anchors as context", () => {
+    const index = mapping.allLines.findIndex((line) => line.inner === "context" && line.content === "")
+    expect(mapping.allLines[index]).toMatchObject({ type: "context", oldLineNum: 4, newLineNum: 5, sourceContent: " ", rawLine: "  " })
+    expect(mapping.getCommentAnchor(index)).toMatchObject({ side: "RIGHT", line: 5 })
+    expect(mapping.allLines.every((line, at) => line.visualIndex === at)).toBe(true)
+  })
+
+  test("raw, the change is there", () => {
+    const raw = new DiffLineMapping(parseDiff(REAL_PATCH), "all", undefined, { rawNestedFiles: new Set(["Fetch.md.diff"]) })
+    expect(contentRows(raw).filter((line) => line.type !== "context").map((line) => line.content)).toEqual([
+      "@@ -1,3 +1,3 @@",
+      "",
+      " ",
+    ])
   })
 })
 

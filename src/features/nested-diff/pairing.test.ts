@@ -43,6 +43,19 @@ describe("a document turning into its diff", () => {
     ])
   })
 
+  test("the inner @@ line is no line of the document", () => {
+    const patch = parseDiff(CONVERSION.replace("++++ contract\n", "++++ contract\n+@@ -1,4 +1,4 @@\n"))
+    expect(pairedRows(patch[0]!, patch[1]!)!.rows).toEqual([
+      { type: "context", content: "# Fetch", oldLineNum: 1, newLineNum: 4 },
+      { type: "context", content: "", oldLineNum: 2, newLineNum: 5 },
+      { type: "deletion", content: "`GET /new` [D1](#deviations)", oldLineNum: 3 },
+      { type: "deletion", content: "", oldLineNum: 4 },
+      { type: "deletion", content: "## Deviations", oldLineNum: 5 },
+      { type: "deletion", content: "| D1 | old route |", oldLineNum: 6 },
+      { type: "addition", content: "`GET /new`", newLineNum: 7 },
+    ])
+  })
+
   test("a diff that is not the whole file pairs nothing", () => {
     const partial = { ...files[0]!, content: files[0]!.content.replace("@@ -1,6 +0,0 @@", "@@ -3,6 +0,0 @@") }
     expect(pairedRows(partial, files[1]!)).toBeNull()

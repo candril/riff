@@ -51,7 +51,10 @@ red.
 - **The outer change goes to the gutter.** In a modified file, a line the
   review added gets a green bar and line number, and a line it removed gets
   red ones. An added or deleted file has no outer change to show: every line
-  would carry the same mark.
+  would carry the same mark. An outer removal and addition that read as the
+  same inner line (an empty line restored to the single space a patch
+  needs) are one context row: the inner diff did not change. `gN` shows the
+  change.
 - **Split view pairs the inner sides.** The left half holds the inner old side
   (context and `-` lines), the right half the inner new side (context and `+`
   lines), with the inner header pair as the first row: `--- observed` facing
