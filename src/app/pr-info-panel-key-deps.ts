@@ -17,6 +17,7 @@ export function prInfoPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): PRIn
     commentInput: ctx.prCommentInput,
     prInfoFilter: ctx.prInfoFilter,
     getPanel: ctx.getPrInfoPanel,
+    settlePrInfo: ctx.prOperationsContext.settlePrInfo,
     onJumpToFile: (filename) => {
       // Jump to file by filename.
       // input handler BEFORE closePRInfoPanel, so the jump captures

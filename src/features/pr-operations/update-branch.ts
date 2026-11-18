@@ -86,8 +86,9 @@ async function sendUpdate(ctx: UpdateBranchContext, prInfo: PrInfo, method: Upda
   if (samePr(ctx.getState().prInfo, prInfo)) ctx.settleBehindBy(0)
   flash(ctx, method === "rebase" ? `Branch rebased onto ${baseRef}` : `Branch updated from ${baseRef}`, "success", 2000)
 
-  // The new head's checks and merge state come with the refetch; one that
-  // fails leaves the panel's old reading until the next refresh.
+  // The new head's checks and merge state come with the refetch, and keep
+  // moving after it, which the settler's later fetches pick up.
+  ctx.settle(prInfo, "later")
   const fresh = await ctx.sources.fetchPrInfo(owner, repo, number).catch(() => null)
   if (!fresh) return
   patchSamePr(ctx, prInfo, () => fresh)

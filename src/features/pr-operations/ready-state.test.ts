@@ -15,6 +15,7 @@ function harness(pr: PrInfo, sources: Partial<ReadyStateSources> = {}) {
   let state: AppState = createInitialState(files, buildFileTree(files), "gh:owner/repo#1259", "", null, null, [], "pr", pr)
   const sent: string[] = []
   const refetched: string[] = []
+  const settles: string[] = []
   const toast = createToastState()
   const confirm = createConfirmState()
   const recording: ReadyStateSources = {
@@ -39,6 +40,7 @@ function harness(pr: PrInfo, sources: Partial<ReadyStateSources> = {}) {
     toast,
     render: () => {},
     later: () => {},
+    settle: (pr: PrInfo, from: "now" | "later" = "now") => { settles.push(`${pr.owner}/${pr.repo}#${pr.number} ${from}`) },
     sends: createReadySends(),
   }
   return {
@@ -49,6 +51,7 @@ function harness(pr: PrInfo, sources: Partial<ReadyStateSources> = {}) {
     toast,
     sent,
     refetched,
+    settles,
   }
 }
 
@@ -123,6 +126,7 @@ describe("marking a pull request ready or back to draft", () => {
     h.confirm.dialog()!.onConfirm()
     await settle()
     expect(h.refetched).toEqual(["owner/repo#1259"])
+    expect(h.settles).toEqual(["owner/repo#1259 later"])
     expect(h.state().prInfo).toMatchObject({ title: "Fresh from GitHub", isDraft: false })
   })
 

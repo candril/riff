@@ -19,6 +19,7 @@ function harness(pr: PrInfo, behindBy: BehindBy, sources: Partial<UpdateBranchSo
   const sent: string[] = []
   const methods: UpdateMethod[] = []
   const refetched: string[] = []
+  const settles: string[] = []
   const settled: BehindBy[] = []
   const toast = createToastState()
   const confirm = createConfirmState()
@@ -41,6 +42,7 @@ function harness(pr: PrInfo, behindBy: BehindBy, sources: Partial<UpdateBranchSo
     toast,
     render: () => {},
     later: () => {},
+    settle: (pr: PrInfo, from: "now" | "later" = "now") => { settles.push(`${pr.owner}/${pr.repo}#${pr.number} ${from}`) },
     behindBy: () => behindBy,
     settleBehindBy: (next: BehindBy) => { settled.push(next) },
   }
@@ -53,6 +55,7 @@ function harness(pr: PrInfo, behindBy: BehindBy, sources: Partial<UpdateBranchSo
     sent,
     methods,
     refetched,
+    settles,
     settled,
   }
 }
@@ -141,6 +144,7 @@ describe("updating a pull request's branch", () => {
     await settle()
     expect(h.settled).toEqual([0])
     expect(h.refetched).toEqual(["owner/repo#1259"])
+    expect(h.settles).toEqual(["owner/repo#1259 later"])
     expect(h.state().prInfo).toMatchObject({ title: "Fresh from GitHub", mergeStateStatus: "CLEAN" })
   })
 
@@ -154,6 +158,7 @@ describe("updating a pull request's branch", () => {
     expect(h.state()).toBe(before)
     expect(h.settled).toEqual([])
     expect(h.refetched).toEqual([])
+    expect(h.settles).toEqual([])
   })
 
   test("an answer landing after riff moved to another PR touches neither the count nor the PR", async () => {

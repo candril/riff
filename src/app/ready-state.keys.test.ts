@@ -72,6 +72,7 @@ test("the dialog shows owner/repo#N and the command, and once y confirms the hea
     setState: mounted.ctx.setState,
     confirm: mounted.confirm,
     toast: mounted.toast,
+    settle: () => {},
     render: () => {
       const info = mounted.ctx.getState().prInfo
       if (info) shown.setPrInfo(info)
@@ -110,6 +111,7 @@ test("two toggles GitHub both refuses leave the header on GitHub's answer, not t
     setState: mounted.ctx.setState,
     confirm: mounted.confirm,
     toast: mounted.toast,
+    settle: () => {},
     render: () => {
       const info = mounted.ctx.getState().prInfo
       if (info) shown.setPrInfo(info)

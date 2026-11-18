@@ -5,6 +5,7 @@
  */
 
 import type { AppState } from "../../state"
+import type { PrInfo } from "../../providers/github/types"
 import { submitPrComment } from "../../providers/github/mutations"
 import { openPrCommentEditor } from "../../utils/editor/spawn"
 import type { ToastState } from "../toast/state"
@@ -28,6 +29,8 @@ export interface AddPrCommentContext {
   later: (fn: () => void, ms: number) => void
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
+  /** The conversation the comment joins lives in the PR info. */
+  settlePrInfo: (prInfo: PrInfo) => void
 }
 
 export async function handleAddPrComment(ctx: AddPrCommentContext): Promise<void> {
@@ -55,6 +58,7 @@ export async function handleAddPrComment(ctx: AddPrCommentContext): Promise<void
     const result = await ctx.sources.submitPrComment(prInfo.owner, prInfo.repo, prInfo.number, body)
 
     if (result.success) {
+      ctx.settlePrInfo(prInfo)
       ctx.toast.show("Comment posted", "success")
       ctx.render()
       ctx.later(() => {

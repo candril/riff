@@ -370,6 +370,11 @@ Note that `gh pr view --json …` is GraphQL, not REST. The activity feed's
 timeline (spec 070) is REST and paginated, and only fetched when the feed is
 opened or refreshed; the stacked-PR check (spec 072) and the merge status's
 behind count (spec 108) run on load and refresh, never on a comment poll.
+After riff acts on the PR (a review, a conversation comment, an edit, a
+merge, auto-merge, the queue, ready/draft, a branch update) the settler in
+`src/features/pr-operations/settle.ts` refetches the bundle at 0, 3, 10 and
+30 seconds, because GitHub recomputes merge state and queue eligibility
+after it answers: about 216 points per action, never on a timer.
 The preview watch (spec 113) is REST: one `issues/comments/:id` read every
 15 seconds, only while a preview is building or waiting to deploy.
 

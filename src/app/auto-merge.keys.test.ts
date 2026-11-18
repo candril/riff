@@ -81,6 +81,7 @@ async function onPr(extra: Partial<PrInfo>) {
     setState: mounted.ctx.setState,
     confirm: mounted.confirm,
     toast: mounted.toast,
+    settle: () => {},
     render: () => {
       const current = mounted.ctx.getState().prInfo
       if (current) shown.setPrInfo(current)

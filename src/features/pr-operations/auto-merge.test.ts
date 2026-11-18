@@ -33,6 +33,7 @@ function harness(pr: PrInfo, sources: Partial<AutoMergeSources> = {}) {
   let state: AppState = createInitialState(files, buildFileTree(files), "gh:owner/repo#1259", "", null, null, [], "pr", pr)
   const sent: unknown[][] = []
   const refetched: string[] = []
+  const settles: string[] = []
   const toast = createToastState()
   const confirm = createConfirmState()
   const ok = (...args: unknown[]): Promise<ReadyResult> => {
@@ -57,6 +58,7 @@ function harness(pr: PrInfo, sources: Partial<AutoMergeSources> = {}) {
     toast,
     render: () => {},
     later: () => {},
+    settle: (pr: PrInfo, from: "now" | "later" = "now") => { settles.push(`${pr.owner}/${pr.repo}#${pr.number} ${from}`) },
   }
   return {
     enable: (method: MergeMethod) => handleEnableAutoMerge(ctx, method),
@@ -69,6 +71,7 @@ function harness(pr: PrInfo, sources: Partial<AutoMergeSources> = {}) {
     toast,
     sent,
     refetched,
+    settles,
   }
 }
 
@@ -197,6 +200,7 @@ describe("auto-merge and the merge queue on confirm", () => {
     expect(h.state().prInfo!.mergeQueue).toEqual(before.mergeQueue)
     expect(h.toast.current()).toMatchObject({ message: "Error: GraphQL: no", type: "error" })
     expect(h.refetched).toEqual([])
+    expect(h.settles).toEqual([])
   })
 
   test("each runner gets exactly its arguments and its success toast", async () => {
@@ -224,6 +228,7 @@ describe("auto-merge and the merge queue on confirm", () => {
     h.confirm.dialog()!.onConfirm()
     await settle()
     expect(h.refetched).toEqual(["owner/repo#1259"])
+    expect(h.settles).toEqual(["owner/repo#1259 later"])
     expect(h.state().prInfo!.title).toBe("Fresh from GitHub")
 
     const failing = harness(blocked(), { fetchPrInfo: () => Promise.reject(new Error("offline")) })

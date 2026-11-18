@@ -69,6 +69,7 @@ test("the dialog shows both commands, and r rebases the branch onto its base", a
     setState: mounted.ctx.setState,
     confirm: mounted.confirm,
     toast: mounted.toast,
+    settle: () => {},
     render: () => {
       const info = mounted.ctx.getState().prInfo
       if (info) shown.setPrInfo(info)

@@ -94,6 +94,7 @@ async function sendReady(ctx: ReadyStateContext, prInfo: PrInfo, toDraft: boolea
   const asked = ctx.sends.current()
   // The local value already holds, so a refetch that fails changes nothing
   // the reader needs to hear about.
+  ctx.settle(prInfo, "later")
   const fresh = await ctx.sources.fetchPrInfo(owner, repo, number).catch(() => null)
   // A toggle sent since has flipped isDraft; this answer would write it back.
   if (!fresh || !ctx.sends.isLatest(asked)) return

@@ -223,7 +223,9 @@ async function send(ctx: AutoMergeContext, prInfo: PrInfo, action: Action): Prom
   flash(ctx, action.done, "success", 2000)
 
   // The local patch already holds, so a refetch that fails changes nothing
-  // the reader needs to hear about.
+  // the reader needs to hear about. GitHub enters the PR into the queue or
+  // arms auto-merge after it answers, so the settler asks again.
+  ctx.settle(prInfo, "later")
   const fresh = await ctx.sources.fetchPrInfo(owner, repo, number).catch(() => null)
   if (!fresh) return
   patchSamePr(ctx, prInfo, () => fresh)

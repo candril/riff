@@ -19,6 +19,7 @@ function prompt(text: string, result: SubmitResult | Error = { success: true }) 
   commentInput.setText(text)
   const toast = createToastState()
   const posted: unknown[][] = []
+  const settled: number[] = []
   const deps: PRInfoPanelDeps = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -27,13 +28,14 @@ function prompt(text: string, result: SubmitResult | Error = { success: true }) 
     commentInput,
     prInfoFilter: createPrInfoFilterState(),
     getPanel: () => null,
+    settlePrInfo: (pr) => { settled.push(pr.number) },
   }
   const post = async (...args: Parameters<typeof submitPrComment>) => {
     posted.push(args)
     if (result instanceof Error) throw result
     return result
   }
-  return { submit: () => submitComment(deps, post), commentInput, toast, posted }
+  return { submit: () => submitComment(deps, post), commentInput, toast, posted, settled }
 }
 
 // The post resolves at once, so one turn of the event loop runs its .then.
@@ -58,6 +60,7 @@ describe("the PR overview's comment prompt", () => {
     expect(h.posted).toEqual([["owner", "repo", 1259, "Looks good."]])
     expect(h.commentInput.isOpen()).toBe(false)
     expect(h.toast.current()).toMatchObject({ message: "Comment posted", type: "success" })
+    expect(h.settled).toEqual([1259])
   })
 
   test("a comment GitHub refuses keeps the prompt open with what it said", async () => {
@@ -67,6 +70,7 @@ describe("the PR overview's comment prompt", () => {
     expect(h.commentInput.current()).toMatchObject({ open: true, text: "Looks good.", loading: false, error: "nope" })
     expect(prCommentPromptModel(h.commentInput.current())).toMatchObject({ status: "nope", statusFg: theme.red })
     expect(h.toast.current()).toBeNull()
+    expect(h.settled).toEqual([])
   })
 
   test("a refusal with no reason says the comment failed to post", async () => {

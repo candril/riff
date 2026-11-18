@@ -24,6 +24,7 @@ function harness(pr: PrInfo, sources: Partial<MergeSources> = {}) {
   let state: AppState = createInitialState(files, buildFileTree(files), "gh:owner/repo#1259", "", null, null, [], "pr", pr)
   const sent: string[] = []
   const refetched: string[] = []
+  const settles: string[] = []
   const toast = createToastState()
   const confirm = createConfirmState()
   const recording: MergeSources = {
@@ -44,6 +45,7 @@ function harness(pr: PrInfo, sources: Partial<MergeSources> = {}) {
     toast,
     render: () => {},
     later: () => {},
+    settle: (pr: PrInfo, from: "now" | "later" = "now") => { settles.push(`${pr.owner}/${pr.repo}#${pr.number} ${from}`) },
   }
   return {
     merge: (method: MergeMethod = "squash") => handleMerge(ctx, method),
@@ -53,6 +55,7 @@ function harness(pr: PrInfo, sources: Partial<MergeSources> = {}) {
     toast,
     sent,
     refetched,
+    settles,
   }
 }
 
@@ -163,6 +166,7 @@ describe("merging a pull request", () => {
     expect(h.state().prInfo?.state).toBe("open")
     expect(h.toast.current()).toMatchObject({ message: "Error: Base branch was modified", type: "error" })
     expect(h.refetched).toEqual([])
+    expect(h.settles).toEqual([])
   })
 
   test("success refetches the PR's info and patches it in", async () => {
@@ -171,6 +175,7 @@ describe("merging a pull request", () => {
     h.confirm.dialog()!.onConfirm()
     await settle()
     expect(h.refetched).toEqual(["owner/repo#1259"])
+    expect(h.settles).toEqual(["owner/repo#1259 later"])
     expect(h.state().prInfo).toMatchObject({ title: "Fresh from GitHub", state: "merged" })
   })
 

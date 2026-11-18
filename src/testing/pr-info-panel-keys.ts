@@ -109,6 +109,7 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     commentInput,
     prInfoFilter,
     getPanel: () => controller,
+    settlePrInfo: (pr) => void calls.push(`settle #${pr.number}`),
     onJumpToFile: record("jumpToFile"),
     onOpenFileAtLine: record("openFileAtLine"),
     onActivateCommit: record("activateCommit"),

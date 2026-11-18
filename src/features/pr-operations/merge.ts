@@ -110,6 +110,7 @@ async function sendMerge(ctx: MergeContext, prInfo: PrInfo, options: MergeOption
 
   // The local "merged" already holds, so a refetch that fails changes
   // nothing the reader needs to hear about.
+  ctx.settle(prInfo, "later")
   const fresh = await ctx.sources.fetchPrInfo(owner, repo, number).catch(() => null)
   if (!fresh) return
   patchSamePr(ctx, prInfo, () => fresh)

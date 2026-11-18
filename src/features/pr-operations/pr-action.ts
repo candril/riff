@@ -18,6 +18,8 @@ export interface PrActionContext<Sources> {
   /** Draws, after handing the PR info panel the state's current prInfo. */
   render: () => void
   later: (fn: () => void, ms: number) => void
+  /** Refetches the PR info over the next while, as GitHub settles (settle.ts). */
+  settle: (prInfo: PrInfo, from?: "now" | "later") => void
 }
 
 export function prRef(prInfo: Pick<PrInfo, "owner" | "repo" | "number">): string {

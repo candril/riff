@@ -28,6 +28,7 @@ export function submitComment(deps: Deps, post: typeof submitPrComment = submitP
     text.trim()
   ).then(result => {
     if (result.success) {
+      deps.settlePrInfo(prInfo)
       deps.commentInput.close()
       deps.toast.show("Comment posted", "success")
       deps.render()

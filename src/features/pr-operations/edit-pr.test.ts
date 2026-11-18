@@ -17,6 +17,7 @@ function editor(sources: Partial<EditPrSources> = {}, mode: "pr" | "local" = "pr
   const terminal: string[] = []
   const later: { ms: number }[] = []
   const edited: unknown[][] = []
+  const settled: number[] = []
   const toast = createToastState()
   const ctx = {
     sources: {
@@ -32,6 +33,7 @@ function editor(sources: Partial<EditPrSources> = {}, mode: "pr" | "local" = "pr
     later: (_fn: () => void, ms: number) => { later.push({ ms }) },
     render: () => {},
     toast,
+    settlePrInfo: (pr: { number: number }) => { settled.push(pr.number) },
   }
   return {
     edit: () => handleEditPr(ctx),
@@ -42,6 +44,7 @@ function editor(sources: Partial<EditPrSources> = {}, mode: "pr" | "local" = "pr
     terminal,
     later,
     edited,
+    settled,
   }
 }
 
@@ -77,6 +80,7 @@ describe("editing the pull request", () => {
     expect(h.edited).toEqual([[1259, "New title", "New body", "owner", "repo"]])
     expect(h.state().prInfo).toMatchObject({ number: 1259, title: "New title", body: "New body" })
     expect(h.toast.current()).toMatchObject({ message: "PR updated", type: "success" })
+    expect(h.settled).toEqual([1259])
     expect(h.later).toEqual([{ ms: 2000 }])
   })
 

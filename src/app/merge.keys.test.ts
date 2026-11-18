@@ -100,6 +100,7 @@ test("the dialog shows both commands, and d merges and deletes the branch, and t
       setState: mounted.ctx.setState,
       confirm: mounted.confirm,
       toast: mounted.toast,
+      settle: () => {},
       render: () => {
         const info = mounted.ctx.getState().prInfo
         if (info) shown.setPrInfo(info)

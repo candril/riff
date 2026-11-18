@@ -66,6 +66,7 @@ function harness(comments: Comment[]) {
     pendingReview,
     toast,
     reviewCalls,
+    settlePrInfo: () => {},
   }
   const calls: SyncCalls = {
     updateComment: async (owner, repo, id, body) => {
@@ -136,8 +137,9 @@ describe("after riff swaps a local review for its branch's pull request", () => 
     h.reviewCalls.saveComment = async (comment, source) => {
       sent.push(`save ${comment.id} under ${source}`)
     }
+    h.ctx.settlePrInfo = (pr) => void sent.push(`settle ${pr.owner}/${pr.repo}#${pr.number}`)
     await handleConfirmReview(h.ctx)
-    expect(sent).toEqual(["head o/r#7", "review o/r#7", "save l1 under gh:o/r#7"])
+    expect(sent).toEqual(["head o/r#7", "review o/r#7", "settle o/r#7", "save l1 under gh:o/r#7"])
   })
 })
 
@@ -205,7 +207,10 @@ describe("handleConfirmReview with GitHub's pending review", () => {
 
   test("a failed submit keeps the draft and its comments", async () => {
     const h = withDraft({ success: false, error: "nope" })
+    let settled = false
+    h.ctx.settlePrInfo = () => { settled = true }
     await handleConfirmReview(h.ctx)
+    expect(settled).toBe(false)
     expect(h.pendingReview.review()).toBe(draft)
     expect(pendingIds(h.state())).toEqual(["pending-1", "pending-2"])
   })

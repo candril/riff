@@ -6,6 +6,7 @@
  */
 
 import type { AppState } from "../../state"
+import type { PrInfo } from "../../providers/github/types"
 import { getPrDiff } from "../../providers/github/diff"
 import { editPullRequest } from "../../providers/github/mutations"
 import { openPrEditor } from "../../utils/editor/spawn"
@@ -34,6 +35,7 @@ export interface EditPrContext {
   later: (fn: () => void, ms: number) => void
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
+  settlePrInfo: (prInfo: PrInfo) => void
 }
 
 export async function handleEditPr(ctx: EditPrContext): Promise<void> {
@@ -92,6 +94,7 @@ export async function handleEditPr(ctx: EditPrContext): Promise<void> {
       return { ...s, prInfo: { ...current, title: result.title, body: result.body } }
     })
 
+    ctx.settlePrInfo(prInfo)
     ctx.toast.show("PR updated", "success")
     ctx.render()
     ctx.later(() => {

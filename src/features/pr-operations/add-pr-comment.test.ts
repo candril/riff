@@ -9,6 +9,7 @@ function commenter(sources: Partial<AddPrCommentSources> = {}) {
   const terminal: string[] = []
   const later: { ms: number }[] = []
   const submitted: unknown[][] = []
+  const settled: number[] = []
   const toast = createToastState()
   const ctx = {
     sources: {
@@ -25,8 +26,9 @@ function commenter(sources: Partial<AddPrCommentSources> = {}) {
     later: (_fn: () => void, ms: number) => { later.push({ ms }) },
     render: () => {},
     toast,
+    settlePrInfo: (pr: { number: number }) => { settled.push(pr.number) },
   }
-  return { post: () => handleAddPrComment(ctx), toast, terminal, later, submitted }
+  return { post: () => handleAddPrComment(ctx), toast, terminal, later, submitted, settled }
 }
 
 describe("posting a PR comment from the editor", () => {
@@ -43,6 +45,7 @@ describe("posting a PR comment from the editor", () => {
     await h.post()
     expect(h.submitted).toEqual([["owner", "repo", 1259, "Looks good."]])
     expect(h.toast.current()).toMatchObject({ message: "Comment posted", type: "success" })
+    expect(h.settled).toEqual([1259])
     expect(h.later).toEqual([{ ms: 2000 }])
   })
 
@@ -50,6 +53,7 @@ describe("posting a PR comment from the editor", () => {
     const h = commenter({ submitPrComment: async () => ({ success: false, error: "locked" }) })
     await h.post()
     expect(h.toast.current()).toMatchObject({ message: "Error: locked", type: "error" })
+    expect(h.settled).toEqual([])
     expect(h.later).toEqual([{ ms: 3000 }])
   })
 

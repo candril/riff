@@ -8,6 +8,7 @@
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
 import type { SubmitResult } from "../../providers/github/mutations"
+import type { PrInfo } from "../../providers/github/types"
 import {
   setThreadResolved,
   withPendingCommentsSubmitted,
@@ -44,6 +45,8 @@ export interface PrOperationsContext {
   pendingReview: Pick<PendingReviewState, "review" | "clear">
   /** In the context, not an argument: Submit Review's keys hand over only the context. */
   reviewCalls: ReviewCalls
+  /** Refetches the PR info as GitHub settles: a review moves its approvals and merge state. */
+  settlePrInfo: (prInfo: PrInfo) => void
 }
 
 /** What a sync sends its items through; a test hands in its own, so no gh runs. */
@@ -392,6 +395,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
     // vanishing until the next poll, which replaces them by githubId.
     ctx.pendingReview.clear()
     ctx.setState(withPendingCommentsSubmitted)
+    ctx.settlePrInfo(prInfo)
 
     // Close the review preview and show success toast
     const pendingReviewCommentCount = pendingReview?.comments.length ?? 0

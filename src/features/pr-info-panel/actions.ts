@@ -10,6 +10,7 @@
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
 import type { PreviewRow } from "../../utils/previews"
+import type { PrInfo } from "../../providers/github/types"
 import { foldStep, type FoldOp } from "../../components/pr-info-tree"
 import { closePRInfoPanel } from "../../state"
 import type { ToastState } from "../toast/state"
@@ -24,6 +25,8 @@ export interface PRInfoPanelDeps {
   commentInput: PrCommentInputState
   prInfoFilter: Pick<PrInfoFilterState, "filterInput" | "start" | "commit" | "clear">
   getPanel: () => PRInfoPanelClass | null
+  /** Refetches the PR info as GitHub settles, after the panel posted to the PR. */
+  settlePrInfo: (prInfo: PrInfo) => void
   onJumpToFile?: (filename: string) => void
   // Callback to open a specific file at a specific line in $EDITOR,
   // bypassing the diff view (spec 043). Used for check annotations —

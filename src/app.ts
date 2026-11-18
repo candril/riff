@@ -96,6 +96,8 @@ import { createCodePeekState } from "./features/inline-comment-overlay/code-peek
 import { createJumpListState } from "./features/jumplist/state"
 import type { ViewerViewedState } from "./providers/github/viewed"
 import type { PrInfo } from "./providers/github/types"
+import { fetchPrInfo } from "./providers/github/session"
+import { createPrInfoSettler } from "./features/pr-operations/settle"
 
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
@@ -1132,6 +1134,26 @@ export async function createApp(options: AppOptions = {}) {
     reactionTarget,
   }
 
+  // The panel draws from its own copy of prInfo; handing it over keeps its
+  // folds and cursor, where rebuilding it would not.
+  const renderWithPrInfo = () => {
+    if (state.prInfo) prInfoPanel?.setPrInfo(state.prInfo)
+    render()
+  }
+
+  const prInfoSettler = createPrInfoSettler({
+    fetchPrInfo,
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render: renderWithPrInfo,
+    later: (fn, ms) => {
+      const timer = setTimeout(fn, ms)
+      timer.unref?.()
+      return () => clearTimeout(timer)
+    },
+  })
+  const settlePrInfo = (prInfo: PrInfo, from?: "now" | "later") => prInfoSettler.settle(prInfo, from)
+
   const prOperationsContext: prOperations.PrOperationsContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -1141,6 +1163,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreview,
     pendingReview,
     reviewCalls: prOperations.githubReviewCalls,
+    settlePrInfo,
   }
 
   const threadMotionContext: threadMotion.ThreadMotionContext = {
@@ -1210,8 +1233,9 @@ export async function createApp(options: AppOptions = {}) {
     suspend: () => renderer.suspend(),
     resume: () => renderer.resume(),
     later: (fn, ms) => { setTimeout(fn, ms) },
-    render,
+    render: renderWithPrInfo,
     toast,
+    settlePrInfo,
   }
 
   const addPrCommentContext: AddPrCommentContext = { ...editPrContext, sources: liveAddPrCommentSources }
@@ -1222,13 +1246,9 @@ export async function createApp(options: AppOptions = {}) {
     setState: (fn) => { state = fn(state) },
     confirm,
     toast,
-    // The panel draws from its own copy of prInfo; handing it over keeps
-    // its folds and cursor, where rebuilding it would not.
-    render: () => {
-      if (state.prInfo) prInfoPanel?.setPrInfo(state.prInfo)
-      render()
-    },
+    render: renderWithPrInfo,
     later: (fn, ms) => { setTimeout(fn, ms) },
+    settle: settlePrInfo,
     sends: createReadySends(),
   }
 
@@ -1347,10 +1367,7 @@ export async function createApp(options: AppOptions = {}) {
         // A reaction on the body, a conversation comment or a review lives
         // in `prInfo`, which the panel keeps its own copy of — hand the new
         // one over before drawing, or the pill never appears (spec 042).
-        render: () => {
-          if (state.prInfo) prInfoPanel?.setPrInfo(state.prInfo)
-          render()
-        },
+        render: renderWithPrInfo,
       },
       target,
       content,
