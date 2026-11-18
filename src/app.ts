@@ -126,6 +126,7 @@ import { toLineState, toRowState } from "./app/split-cursor"
 import { routeDiffViewport } from "./app/diff-viewport"
 import { createAppKeys } from "./app/keys"
 import { startUsageRecording } from "./features/usage"
+import { startRecentRecording } from "./features/recent"
 
 // Feature modules
 import * as actionMenuFeature from "./features/action-menu"
@@ -1508,6 +1509,7 @@ export async function createApp(options: AppOptions = {}) {
   })
   paletteKeys = dispatchKeypress.commandKeys
   startUsageRecording(renderer, dispatchKeypress.keymap, actionMenu)
+  startRecentRecording(renderer, { ...options, mode })
 
   const jumpRecording = createJumpRecording({
     getState: () => state,
