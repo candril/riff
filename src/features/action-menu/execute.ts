@@ -63,7 +63,7 @@ export interface ActionHandlers {
   /** Each asks first, then arms or disarms auto-merge, or moves the PR in or out of its merge queue (spec 110). */
   handleEnableAutoMerge: (method: MergeMethod) => void
   handleDisableAutoMerge: () => void
-  handleEnqueue: () => void
+  handleEnqueue: (method?: MergeMethod) => void
   handleDequeue: () => void
   /** Reopen riff on the PR this branch already has (spec 079). */
   handleReviewBranchPr: (prNumber: number) => void
@@ -253,7 +253,9 @@ export async function executeAction(
     case "merge-commit":
     case "merge-rebase": {
       const merge = MERGE_ACTIONS.find((action) => action.id === actionId)
-      if (merge) handlers.handleMerge(merge.method)
+      // A queued base takes no direct merge: the method picked goes to the queue instead.
+      if (merge && state.prInfo?.mergeQueue) handlers.handleEnqueue(merge.method)
+      else if (merge) handlers.handleMerge(merge.method)
       break
     }
 

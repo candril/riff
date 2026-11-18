@@ -91,7 +91,7 @@ async function onPr(extra: Partial<PrInfo>) {
   const wired: Partial<ActionHandlers> = {
     handleEnableAutoMerge: (method) => handleEnableAutoMerge(autoMerge, method),
     handleDisableAutoMerge: () => handleDisableAutoMerge(autoMerge),
-    handleEnqueue: () => handleEnqueue(autoMerge),
+    handleEnqueue: (method) => handleEnqueue(autoMerge, method),
     handleDequeue: () => handleDequeue(autoMerge),
   }
   const handlers = new Proxy(wired as ActionHandlers, {
@@ -154,8 +154,29 @@ test("Enable Auto-Merge (Squash) asks with the exact command, and y arms it and 
   expect(after).not.toContain("gh pr merge 1259")
 })
 
-test("Add to Merge Queue asks, and y queues the PR", async () => {
+test("on a queued base, Squash and Merge on a blocked PR asks to merge when ready, and y arms it for the queue", async () => {
   const { mounted, sent } = await onPr({ mergeQueue: { entry: null, inQueue: false, removal: null } })
+  const asking = await pick(mounted, "squash and merge", "Squash and Merge")
+  expect(asking).toContain("Merge When Ready")
+  expect(asking).toContain("gh pr merge 1259 -R owner/repo")
+  expect(asking).not.toContain("--squash")
+  mounted.setup.mockInput.pressKey("y")
+  await Bun.sleep(10)
+  expect(sent).toEqual([["enqueuePullRequest", "owner", "repo", 1259]])
+  expect(await mounted.frame()).toContain("Joins the merge queue once ready")
+})
+
+test("on a queued base, Enable Auto-Merge is offered and goes to the queue", async () => {
+  const { mounted, sent } = await onPr({ mergeQueue: { entry: null, inQueue: false, removal: null } })
+  const asking = await pick(mounted, "enable auto-merge squash", "Enable Auto-Merge (Squash)")
+  expect(asking).toContain("Merge When Ready")
+  mounted.setup.mockInput.pressKey("y")
+  await Bun.sleep(10)
+  expect(sent).toEqual([["enqueuePullRequest", "owner", "repo", 1259]])
+})
+
+test("Add to Merge Queue asks, and y queues the PR", async () => {
+  const { mounted, sent } = await onPr({ mergeQueue: { entry: null, inQueue: false, removal: null }, mergeStateStatus: "CLEAN" })
   const asking = await pick(mounted, "add to merge queue", "Add to Merge Queue")
   expect(asking).toContain("gh pr merge 1259 -R owner/repo")
   mounted.setup.mockInput.pressKey("y")

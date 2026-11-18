@@ -1304,7 +1304,7 @@ export async function createApp(options: AppOptions = {}) {
       }),
     handleEnableAutoMerge: (method) => handleEnableAutoMerge(autoMergeContext, method),
     handleDisableAutoMerge: () => handleDisableAutoMerge(autoMergeContext),
-    handleEnqueue: () => handleEnqueue(autoMergeContext),
+    handleEnqueue: (method) => handleEnqueue(autoMergeContext, method),
     handleDequeue: () => handleDequeue(autoMergeContext),
     handleCreatePr: () => handleCreatePr(createPrContext),
     handleAddPrComment: () => handleAddPrComment(addPrCommentContext),

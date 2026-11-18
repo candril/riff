@@ -517,7 +517,7 @@ export const actions: Action[] = [
     category: "github",
     available: (state) => {
       const pr = state.prInfo
-      return state.appMode === "pr" && pr?.state === "open" && !pr.mergeQueue && pr.autoMergeAllowed !== false
+      return state.appMode === "pr" && pr?.state === "open" && !pr.mergeQueue?.inQueue && pr.autoMergeAllowed !== false
         && !pr.autoMergeMethod && (pr.mergeMethods?.includes(method) ?? false)
     },
   })),

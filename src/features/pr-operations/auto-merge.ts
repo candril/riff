@@ -49,6 +49,11 @@ interface Action {
 }
 
 export function handleEnableAutoMerge(ctx: AutoMergeContext, method: MergeMethod): void {
+  // On a queued base, auto-merge is GitHub's "merge when ready": the PR joins the queue once it may.
+  if (ctx.getState().prInfo?.mergeQueue) {
+    handleEnqueue(ctx, method)
+    return
+  }
   withPr(ctx, (prInfo) => {
     const { owner, repo, number } = prInfo
     return {
@@ -84,9 +89,29 @@ export function handleDisableAutoMerge(ctx: AutoMergeContext): void {
   })
 }
 
-export function handleEnqueue(ctx: AutoMergeContext): void {
+/**
+ * The queue sets its own merge method, so the method only stands in for
+ * armed auto-merge until the refetch reads the real one.
+ */
+export function handleEnqueue(ctx: AutoMergeContext, method?: MergeMethod): void {
   withPr(ctx, (prInfo) => {
     const { owner, repo, number } = prInfo
+    if (!canMergeNow(prInfo)) {
+      const armed = method ?? prInfo.defaultMergeMethod ?? prInfo.mergeMethods?.[0] ?? "squash"
+      return {
+        refusal: enqueueRefusal(prInfo)
+          ?? (prInfo.autoMergeAllowed === false ? `auto-merge is off in ${owner}/${repo}: queue it once it can merge` : null),
+        action: () => ({
+          title: "Merge When Ready",
+          message: `${prRef(prInfo)} joins ${prInfo.baseRef}'s merge queue once its requirements pass`,
+          command: enqueueCommand(owner, repo, number),
+          patch: (current) => ({ ...current, autoMergeMethod: armed }),
+          revert: (current) => ({ ...current, autoMergeMethod: prInfo.autoMergeMethod ?? null }),
+          run: () => ctx.sources.enqueuePullRequest(owner, repo, number),
+          done: "Joins the merge queue once ready",
+        }),
+      }
+    }
     return {
       refusal: enqueueRefusal(prInfo),
       action: () => ({
@@ -132,12 +157,16 @@ function enableRefusal(prInfo: PrInfo, method: MergeMethod): string | null {
   if (prInfo.isDraft) return "PR is a draft: mark it ready first"
   if (prInfo.autoMergeAllowed === false) return `auto-merge is off in ${owner}/${repo}`
   if (!prInfo.mergeMethods?.includes(method)) return `${method} merges are off in ${owner}/${repo}`
-  if (prInfo.mergeQueue) return `${prInfo.baseRef} merges through a queue: add it to the queue`
   if (prInfo.autoMergeMethod) return `auto-merge is already on (${prInfo.autoMergeMethod})`
   // GitHub itself refuses to arm auto-merge on a PR that could merge now.
-  const status = prInfo.mergeStateStatus
-  if (status === "CLEAN" || status === "HAS_HOOKS" || status === "UNSTABLE") return "PR can merge now: merge it instead"
+  if (canMergeNow(prInfo)) return "PR can merge now: merge it instead"
   return null
+}
+
+/** gh queues a PR in this state outright; in any other it arms auto-merge for the queue. */
+function canMergeNow(prInfo: PrInfo): boolean {
+  const status = prInfo.mergeStateStatus
+  return status === "CLEAN" || status === "HAS_HOOKS" || status === "UNSTABLE"
 }
 
 function enqueueRefusal(prInfo: PrInfo): string | null {

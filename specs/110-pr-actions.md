@@ -44,7 +44,10 @@ what riff did without a full reload.
 - **Auto-merge**: enabled with a method or disabled, through
   `enablePullRequestAutoMerge` and `disablePullRequestAutoMerge`. When the
   base has a merge queue, the same action adds the PR to the queue or
-  removes it, through the merge-queue mutations.
+  removes it, through the merge-queue mutations. On such a base the queue
+  sets the method, so every merge and auto-merge action goes to the queue:
+  a PR that can merge now joins it, any other is armed to join it once its
+  requirements pass (GitHub's "merge when ready").
 - **Every action asks first** in riff's confirm dialog. The dialog shows
   `owner/repo#N`, the exact effect, and every field that goes out (the
   command, the method, delete branch). A key confirms; anything else
@@ -96,7 +99,9 @@ run sends a real merge, ready or update.
   throw; `readyCommand` builds the arguments they run and the dialog shows.
 - `src/features/pr-operations/merge.ts`: `handleMerge(ctx, method)` refuses
   with an info toast, in order, a PR that is not open, a draft, a method
-  the repository has off, a base with a merge queue, and any merge status
+  the repository has off, a base with a merge queue (which the palette
+  never sends here: `execute.ts` hands a merge on a queued base to
+  `handleEnqueue` with its method), and any merge status
   but `CLEAN`, `HAS_HOOKS`, `UNSTABLE`, or `BLOCKED` where the viewer can
   merge as admin (then with `--admin`). The last refusal carries the
   header's own reading from `mergeReading`. It then asks, sets `state` to
@@ -133,14 +138,21 @@ run sends a real merge, ready or update.
   `updatePullRequestBranch` runs exactly that argv. The dialog binds `d`
   and `r` as second answers, each acting only when the dialog offers it.
 - `src/features/pr-operations/auto-merge.ts`: `handleEnableAutoMerge(ctx,
-  method)` refuses, in order, a PR that is not open, a draft, a repository
-  with `autoMergeAllowed` false, a method it has off, a base with a merge
-  queue, auto-merge already armed, and a status of `CLEAN`, `HAS_HOOKS`
-  or `UNSTABLE`, since GitHub rejects arming auto-merge on a PR that can
+  method)` hands a base with a merge queue to `handleEnqueue(ctx, method)`;
+  otherwise it refuses, in order, a PR that is not open, a draft, a
+  repository with `autoMergeAllowed` false, a method it has off,
+  auto-merge already armed, and a status of `CLEAN`, `HAS_HOOKS` or
+  `UNSTABLE`, since GitHub rejects arming auto-merge on a PR that can
   merge now. `handleDisableAutoMerge` refuses a PR that is not open or
   has auto-merge off; `handleEnqueue` one that is not open, a draft, a
   base with no queue, a PR already queued and one armed to join the
-  queue once checks pass; `handleDequeue` one that is not open, not
+  queue once checks pass. With a status of `CLEAN`, `HAS_HOOKS` or
+  `UNSTABLE` it asks `Add to Merge Queue` and patches `mergeQueue`;
+  with any other it asks `Merge When Ready`, refuses a repository with
+  `autoMergeAllowed` false, and patches `autoMergeMethod` with the method
+  picked (the queue's own arrives with the refetch). The auto-merge
+  actions are offered on a queued base until the PR is in the queue.
+  `handleDequeue` one that is not open, not
   queued, or has no node id. Each asks with no alternative, patches
   `autoMergeMethod` or `mergeQueue` at once, puts it back with an error
   toast if gh refuses, and refetches like merge.

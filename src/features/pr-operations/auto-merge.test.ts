@@ -86,7 +86,8 @@ describe("auto-merge and the merge queue refuse", () => {
     ["enable on a draft", enable, { isDraft: true }, "PR is a draft: mark it ready first"],
     ["enable where the repository forbids it", enable, { autoMergeAllowed: false }, "auto-merge is off in owner/repo"],
     ["enable with a method the repository forbids", enable, { mergeMethods: ["merge"] }, "squash merges are off in owner/repo"],
-    ["enable on a queued base", enable, { mergeQueue: queue() }, "master merges through a queue: add it to the queue"],
+    ["enable on a queued base already armed", enable, { mergeQueue: queue(), autoMergeMethod: "squash" }, "PR joins the queue once checks pass"],
+    ["enable on a queued base where the repository forbids it", enable, { mergeQueue: queue(), autoMergeAllowed: false }, "auto-merge is off in owner/repo: queue it once it can merge"],
     ["enable when already armed", enable, { autoMergeMethod: "rebase" }, "auto-merge is already on (rebase)"],
     ["enable on a clean PR", enable, { mergeStateStatus: "CLEAN" }, "PR can merge now: merge it instead"],
     ["enable on a PR with hooks", enable, { mergeStateStatus: "HAS_HOOKS" }, "PR can merge now: merge it instead"],
@@ -116,7 +117,9 @@ describe("auto-merge and the merge queue ask first", () => {
   test.each([
     ["Enable Auto-Merge", enable, {}, "owner/repo#1259 into master once requirements pass (squash)", "gh pr merge 1259 -R owner/repo --auto --squash"],
     ["Disable Auto-Merge", disable, { autoMergeMethod: "squash" }, "owner/repo#1259 stops merging on its own (squash)", "gh pr merge 1259 -R owner/repo --disable-auto"],
-    ["Add to Merge Queue", enqueue, { mergeQueue: queue() }, "owner/repo#1259 into master's merge queue", "gh pr merge 1259 -R owner/repo"],
+    ["Add to Merge Queue", enqueue, { mergeQueue: queue(), mergeStateStatus: "CLEAN" }, "owner/repo#1259 into master's merge queue", "gh pr merge 1259 -R owner/repo"],
+    ["Merge When Ready", enqueue, { mergeQueue: queue() }, "owner/repo#1259 joins master's merge queue once its requirements pass", "gh pr merge 1259 -R owner/repo"],
+    ["Merge When Ready", enable, { mergeQueue: queue() }, "owner/repo#1259 joins master's merge queue once its requirements pass", "gh pr merge 1259 -R owner/repo"],
     [
       "Remove from Merge Queue",
       dequeue,
@@ -157,8 +160,15 @@ describe("auto-merge and the merge queue on confirm", () => {
       "enqueue",
       enqueue,
       "enqueuePullRequest",
-      { mergeQueue: queue({ removal: { reason: "MANUAL", at: "t" } }) },
+      { mergeQueue: queue({ removal: { reason: "MANUAL", at: "t" } }), mergeStateStatus: "CLEAN" },
       (p: PrInfo) => expect(p.mergeQueue).toEqual({ entry: null, inQueue: true, removal: null }),
+    ],
+    [
+      "enable on a queued base",
+      enable,
+      "enqueuePullRequest",
+      { mergeQueue: queue() },
+      (p: PrInfo) => expect(p.autoMergeMethod).toBe("squash"),
     ],
     [
       "dequeue",
@@ -193,7 +203,9 @@ describe("auto-merge and the merge queue on confirm", () => {
     const cases: [Run, Partial<PrInfo>, unknown[], string][] = [
       [enable, {}, ["owner", "repo", 1259, "squash"], "Auto-merge on (squash)"],
       [disable, { autoMergeMethod: "squash" }, ["owner", "repo", 1259], "Auto-merge off"],
-      [enqueue, { mergeQueue: queue() }, ["owner", "repo", 1259], "Added to the merge queue"],
+      [enqueue, { mergeQueue: queue(), mergeStateStatus: "CLEAN" }, ["owner", "repo", 1259], "Added to the merge queue"],
+      [enqueue, { mergeQueue: queue() }, ["owner", "repo", 1259], "Joins the merge queue once ready"],
+      [enable, { mergeQueue: queue() }, ["owner", "repo", 1259], "Joins the merge queue once ready"],
       [dequeue, { mergeQueue: queue({ inQueue: true }) }, ["PR_kwDO"], "Removed from the merge queue"],
     ]
     for (const [run, extra, args, done] of cases) {
