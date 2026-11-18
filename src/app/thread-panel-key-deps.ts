@@ -8,6 +8,7 @@ import {
   openInlineCommentOverlay,
 } from "../state"
 import { openCommentImages } from "../features/inline-comment-overlay/handlers"
+import { copyToClipboard } from "../utils/clipboard"
 import * as commentsFeature from "../features/comments"
 import * as externalTools from "../features/external-tools"
 import * as fileNavigation from "../features/file-navigation"
@@ -102,6 +103,18 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     },
     handleCopyLink: (comment) => {
       void ctx.handleCopyCommentLink(comment)
+    },
+    handleCopyBody: (comment) => {
+      // The toast waits for the clipboard helper: "copied" over an empty clipboard is worse than a late toast.
+      void copyToClipboard(comment.localEdit ?? comment.body).then((copied) => {
+        if (copied.ok) ctx.toast.show("Comment copied", "success")
+        else ctx.toast.show(`Copy failed: ${copied.error}`, "error")
+        ctx.render()
+        setTimeout(() => {
+          ctx.toast.clear()
+          ctx.render()
+        }, 2000)
+      })
     },
     handleOpenInEditor: (comment) => {
       void externalTools.handleOpenFileAtLine(

@@ -61,6 +61,8 @@ export interface ThreadPanelViewDeps {
   getPanelTextWidth: () => number
   /** `y` — copy a GitHub link to the highlighted comment. */
   handleCopyLink: (comment: Comment) => void
+  /** `Y` — copy the highlighted comment's Markdown, as the reader sees it. */
+  handleCopyBody: (comment: Comment) => void
   /** `o` — open the highlighted comment's file in $EDITOR at its
    *  anchored line. Most useful for outdated threads where the line is
    *  no longer in the diff but still exists in the working copy. */
@@ -154,6 +156,11 @@ export function toggleExpanded(deps: Deps): void {
 export function copyLink(deps: Deps): void {
   const highlighted = highlightedComment(deps.getState())
   if (highlighted) deps.handleCopyLink(highlighted)
+}
+
+export function copyBody(deps: Deps): void {
+  const highlighted = highlightedComment(deps.getState())
+  if (highlighted) deps.handleCopyBody(highlighted)
 }
 
 export function closePanel(deps: Deps): void {

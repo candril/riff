@@ -145,6 +145,7 @@ In the **comments panel** (focused — `Ctrl+t`, or `Enter` on a thread):
 | `H` | Show only open threads — hide resolved and outdated ones — or all again; kept per review |
 | `S` | Post this one comment now |
 | `y` | Copy a link to it |
+| `Y` | Copy its text, as Markdown |
 | `o` | Open its file at its line in `$EDITOR` |
 | `q` `Esc` `Ctrl+h` | Close the panel, or hand focus back |
 

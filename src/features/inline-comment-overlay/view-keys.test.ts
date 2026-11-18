@@ -119,6 +119,13 @@ describe("the thread panel in view mode", () => {
     expect(n.defaultPrevented).toBe(true)
   })
 
+  test("Y copies the comment's text, not its link", async () => {
+    const keys = await threadPanelKeys(panelState(2))
+    keys.press("Y")
+    keys.press("y")
+    expect(keys.calls).toEqual(["copyBody b", "copyLink b"])
+  })
+
   test("S posts a local comment, leaves a synced one alone, and Ctrl-s is swallowed", async () => {
     const keys = await threadPanelKeys(panelState(1))
     keys.press("S")

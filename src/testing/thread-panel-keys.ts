@@ -81,6 +81,7 @@ export async function threadPanelKeys(initial: AppState, options: { chatOpen?: b
     getPanelLayout: () => null,
     getPanelTextWidth: () => 42,
     handleCopyLink: (c) => void calls.push(`copyLink ${c.id}`),
+    handleCopyBody: (c) => void calls.push(`copyBody ${c.id}`),
     handleOpenInEditor: (c) => void calls.push(`editor ${c.id}`),
     handleOpenImages: (c) => void calls.push(`images ${c.id}`),
     onOpenLinks: (c, action) => void calls.push(`links ${c.id} ${action}`),
